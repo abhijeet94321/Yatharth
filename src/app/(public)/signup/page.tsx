@@ -17,6 +17,7 @@ import { Logo } from '@/components/logo';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
 export default function SignupPage() {
@@ -29,12 +30,13 @@ export default function SignupPage() {
     defaultValues: {
       name: '',
       email: '',
+      password: '',
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const newUser = signup(values.name, values.email);
+    const newUser = signup(values.name, values.email, values.password);
     if (!newUser) {
       toast({
         title: 'Signup Failed',
@@ -76,6 +78,19 @@ export default function SignupPage() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input placeholder="name@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="********" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -15,7 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email.' }),
+  username: z.string().min(1, { message: 'Please enter your username.' }),
+  password: z.string().min(1, { message: 'Please enter your password.' }),
 });
 
 export default function LoginPage() {
@@ -26,17 +27,18 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      username: '',
+      password: '',
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const user = login(values.email);
+    const user = login(values.username, values.password);
     if (!user) {
       toast({
         title: 'Login Failed',
-        description: 'No user found with that email. Please try again or sign up.',
+        description: 'Invalid username or password. Please try again.',
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -48,19 +50,32 @@ export default function LoginPage() {
       <CardHeader className="items-center text-center">
         <Logo />
         <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
-        <CardDescription>Enter your email to access your meditation dashboard.</CardDescription>
+        <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" {...field} />
+                    <Input placeholder="user-1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="********" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -80,7 +95,7 @@ export default function LoginPage() {
           </Link>
         </p>
          <p className="text-muted-foreground text-xs">
-          (Hint: use aisha@example.com or charles@example.com)
+          (Hint: use user-1/pass or admin-1/pass)
         </p>
       </CardFooter>
     </Card>

@@ -2,6 +2,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  password?: string; // Adding password field for auth
   avatar: string;
   role: 'user' | 'admin';
 };

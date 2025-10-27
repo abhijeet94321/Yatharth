@@ -9,9 +9,9 @@ import { Loader2 } from 'lucide-react';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string) => User | null;
+  login: (username: string, password: string) => User | null;
   logout: () => void;
-  signup: (name: string, email: string) => User | null;
+  signup: (name: string, email: string, password: string) => User | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,9 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = (email: string): User | null => {
+  const login = (username: string, password: string): User | null => {
     setLoading(true);
-    const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const foundUser = users.find(u => u.id === username && u.password === password);
     if (foundUser) {
       localStorage.setItem('userId', foundUser.id);
       setUser(foundUser);
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   };
 
-  const signup = (name: string, email: string): User | null => {
+  const signup = (name: string, email: string, password: string): User | null => {
     setLoading(true);
     const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existingUser) {
@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: `user-${Date.now()}`,
         name,
         email,
+        password,
         avatar: `https://picsum.photos/seed/${name}/100/100`,
         role: 'user',
     };
