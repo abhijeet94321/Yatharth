@@ -88,6 +88,7 @@ export function MeditationChart({
               dataKey="minutes"
               fill="var(--color-minutes)"
               radius={4}
+              barSize={20}
             />
           </BarChart>
         </ChartContainer>
