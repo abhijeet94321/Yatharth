@@ -24,7 +24,7 @@ interface MeditationChartProps {
 export function MeditationChart({
   sessions,
   title = "Your Progress",
-  description = "Time meditated over the last 7 days."
+  description = "Time meditated over the last 15 days."
 }: MeditationChartProps) {
   const chartData = useMemo(() => {
     const dataByDay: { [key: string]: number } = {};
@@ -37,13 +37,13 @@ export function MeditationChart({
       dataByDay[day] += session.duration;
     });
 
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const last15Days = Array.from({ length: 15 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       return format(d, 'yyyy-MM-dd');
     }).reverse();
 
-    return last7Days.map(day => ({
+    return last15Days.map(day => ({
       date: format(parseISO(day), 'MMM d'),
       minutes: Math.round((dataByDay[day] || 0) / 60),
     }));
@@ -88,7 +88,7 @@ export function MeditationChart({
               dataKey="minutes"
               fill="var(--color-minutes)"
               radius={4}
-              barSize={20}
+              barSize={12}
             />
           </BarChart>
         </ChartContainer>
