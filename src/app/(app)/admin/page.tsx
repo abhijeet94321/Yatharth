@@ -1,39 +1,44 @@
 'use client';
 
-import { useAuth } from '@/lib/auth';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { users as allUsers, meditationSessions as allSessions } from '@/lib/data';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
-import type { User, MeditationSession } from '@/lib/types';
+import type { UserProfile, MeditationSession } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { collection, doc, getFirestore } from 'firebase/firestore';
 
 
 function AdminPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, isUserLoading } = useUser();
     const router = useRouter();
-    const [adminData, setAdminData] = useState<{users: User[], sessions: MeditationSession[]} | null>(null);
-    const [loading, setLoading] = useState(true);
+    const firestore = useFirestore();
+    
+    const userProfileRef = useMemoFirebase(() => {
+      if (!user) return null;
+      return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+    const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+    const { data: allUsers, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
+
+    // Note: This is not ideal for large datasets, in a real app you might paginate
+    // or fetch sessions only for the selected user.
+    const allSessionsQuery = useMemoFirebase(() => collection(firestore, 'meditationSessions'), [firestore]);
+    const { data: allSessions, isLoading: sessionsLoading } = useCollection<MeditationSession>(allSessionsQuery);
+
 
     useEffect(() => {
-        if (!authLoading && user?.role !== 'admin') {
+        if (!isUserLoading && !isProfileLoading && userProfile?.role !== 'admin') {
             router.replace('/dashboard');
         }
-    }, [user, authLoading, router]);
+    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
-    useEffect(() => {
-      // In a real app, this would be a protected API call.
-      // We simulate a fetch here.
-      if(user?.role === 'admin') {
-        setAdminData({
-          users: allUsers,
-          sessions: allSessions,
-        });
-        setLoading(false);
-      }
-    }, [user]);
+    const loading = isUserLoading || isProfileLoading || usersLoading;
 
-    if (authLoading || loading || user?.role !== 'admin') {
+    if (loading || userProfile?.role !== 'admin') {
         return (
           <div className="flex h-full w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -44,7 +49,7 @@ function AdminPage() {
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-            {adminData && <AdminDashboard users={adminData.users} sessions={adminData.sessions} />}
+            {allUsers && <AdminDashboard users={allUsers} sessions={allSessions || []} />}
         </div>
     );
 }

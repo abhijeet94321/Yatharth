@@ -1,20 +1,30 @@
 'use client';
-import { useState } from 'react';
-import type { User, MeditationSession } from '@/lib/types';
+import { useState, useMemo } from 'react';
+import type { UserProfile, MeditationSession } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 interface AdminDashboardProps {
-  users: User[];
-  sessions: MeditationSession[];
+  users: UserProfile[];
+  sessions: MeditationSession[]; // This might become redundant if we fetch per user
 }
 
-export function AdminDashboard({ users, sessions }: AdminDashboardProps) {
+export function AdminDashboard({ users, sessions: allSessions }: AdminDashboardProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(users[0]?.id || null);
+  const firestore = useFirestore();
+
+  const selectedUserSessionsQuery = useMemoFirebase(() => {
+    if (!selectedUserId) return null;
+    return collection(firestore, 'users', selectedUserId, 'meditationSessions');
+  }, [firestore, selectedUserId]);
+
+  const { data: selectedUserSessions } = useCollection<MeditationSession>(selectedUserSessionsQuery);
+
 
   const selectedUser = users.find(u => u.id === selectedUserId);
-  const selectedUserSessions = sessions.filter(s => s.userId === selectedUserId);
 
   return (
     <div className="space-y-6">
@@ -24,7 +34,7 @@ export function AdminDashboard({ users, sessions }: AdminDashboardProps) {
           <CardDescription>Select a user to view their meditation data.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select onValueChange={setSelectedUserId} defaultValue={selectedUserId || undefined}>
+          <Select onValueChange={setSelectedUserId} value={selectedUserId || undefined}>
             <SelectTrigger className="w-full md:w-[280px]">
               <SelectValue placeholder="Select a user" />
             </SelectTrigger>
@@ -41,7 +51,7 @@ export function AdminDashboard({ users, sessions }: AdminDashboardProps) {
 
       {selectedUser && (
         <MeditationChart 
-          sessions={selectedUserSessions} 
+          sessions={selectedUserSessions || []} 
           title={`${selectedUser.name}'s Progress`}
           description={`Meditation data for ${selectedUser.email}.`}
         />

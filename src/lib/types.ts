@@ -1,11 +1,16 @@
-export type User = {
+import type { User as FirebaseUser } from 'firebase/auth';
+
+export type UserProfile = {
   id: string;
   name: string;
   email: string;
-  password?: string; // Adding password field for auth
   avatar: string;
   role: 'user' | 'admin';
 };
+
+// Combine Firebase User with our app-specific profile
+export type User = FirebaseUser & UserProfile;
+
 
 export type MeditationSession = {
   id: string;

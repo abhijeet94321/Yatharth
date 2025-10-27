@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { useAuth } from '@/lib/auth';
+import { useUser, useAuth, useDoc, useMemoFirebase } from '@/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,11 +12,26 @@ import {
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { SidebarTrigger } from '../ui/sidebar';
+import { doc, getFirestore } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const auth = useAuth();
+  const firestore = getFirestore();
 
-  if (!user) return null;
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+
+  const handleLogout = () => {
+    auth.signOut();
+  };
+
+  if (!user || !userProfile) return null;
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
@@ -26,8 +41,8 @@ export function Header() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Image
-              src={user.avatar}
-              alt={user.name}
+              src={userProfile.avatar}
+              alt={userProfile.name}
               width={40}
               height={40}
               className="rounded-full"
@@ -37,9 +52,9 @@ export function Header() {
         <DropdownMenuContent className="w-56" align="end">
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{user.name}</p>
+              <p className="text-sm font-medium leading-none">{userProfile.name}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {user.email}
+                {userProfile.email}
               </p>
             </div>
           </DropdownMenuLabel>
@@ -49,7 +64,7 @@ export function Header() {
             <span>Profile</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout}>
+          <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2" />
             <span>Log out</span>
           </DropdownMenuItem>

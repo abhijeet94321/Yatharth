@@ -9,12 +9,25 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { useUser, useAuth, useDoc, useMemoFirebase } from '@/firebase';
 import { Logo } from '../logo';
+import { doc, getFirestore } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const auth = useAuth();
+  const firestore = getFirestore();
+  const handleLogout = () => auth.signOut();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
   const menuItems = [
     {
@@ -40,7 +53,7 @@ export function SidebarNav() {
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) =>
-            (!item.adminOnly || user?.role === 'admin') && (
+            (!item.adminOnly || userProfile?.role === 'admin') && (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
@@ -60,7 +73,7 @@ export function SidebarNav() {
       <SidebarFooter>
          <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={logout} tooltip="Log Out">
+              <SidebarMenuButton onClick={handleLogout} tooltip="Log Out">
                 <LogOut />
                 <span>Log Out</span>
               </SidebarMenuButton>

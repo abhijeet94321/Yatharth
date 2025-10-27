@@ -5,14 +5,18 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
+import { useAuth, useFirestore } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -21,7 +25,9 @@ const formSchema = z.object({
 });
 
 export default function SignupPage() {
-  const { signup } = useAuth();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,15 +40,32 @@ export default function SignupPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const newUser = signup(values.name, values.email, values.password);
-    if (!newUser) {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      const userProfile = {
+        id: user.uid,
+        name: values.name,
+        email: values.email,
+        avatar: `https://picsum.photos/seed/${user.uid}/100/100`,
+        role: 'user',
+      };
+
+      const userDocRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
+
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error(error);
       toast({
         title: 'Signup Failed',
-        description: 'A user with this email already exists. Please log in.',
+        description: error.message || 'Could not create account.',
         variant: 'destructive',
       });
+    } finally {
       setIsLoading(false);
     }
   }

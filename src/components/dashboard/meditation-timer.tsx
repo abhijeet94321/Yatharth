@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pause, Play, StopCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { logMeditationSession } from '@/lib/actions';
+import { useFirestore } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 interface MeditationTimerProps {
   userId: string;
@@ -15,8 +18,10 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
   const [time, setTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
+  const [startTime, setStartTime] = useState<Date | null>(null);
   const { toast } = useToast();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const firestore = useFirestore();
 
   useEffect(() => {
     if (isActive && !isPaused) {
@@ -35,6 +40,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
   }, [isActive, isPaused]);
 
   const handleStart = () => {
+    setStartTime(new Date());
     setIsActive(true);
     setIsPaused(false);
   };
@@ -46,25 +52,28 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
   const handleStop = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     
-    if (time > 0) {
-      const result = await logMeditationSession(userId, time);
-      if (result.success) {
-        toast({
-          title: 'Session Saved!',
-          description: `You meditated for ${formatTime(time)}. Great work!`,
-          className: 'bg-accent text-accent-foreground',
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Could not save your session. Please try again.',
-          variant: 'destructive',
-        });
-      }
+    if (time > 0 && userId && startTime) {
+      const sessionsColRef = collection(firestore, 'users', userId, 'meditationSessions');
+      const sessionData = {
+        userId,
+        startTime: startTime.toISOString(),
+        endTime: new Date().toISOString(),
+        duration: time,
+        createdAt: serverTimestamp(),
+      };
+      
+      addDocumentNonBlocking(sessionsColRef, sessionData);
+
+      toast({
+        title: 'Session Saved!',
+        description: `You meditated for ${formatTime(time)}. Great work!`,
+        className: 'bg-accent text-accent-foreground',
+      });
     }
     
     setIsActive(false);
     setTime(0);
+    setStartTime(null);
   };
 
   const formatTime = (seconds: number) => {
