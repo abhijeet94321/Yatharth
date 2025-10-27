@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Yatharth 2025 application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "Date and time when the user registered.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "registrationDate"
+      ]
+    },
+    "MeditationSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MeditationSession",
+      "type": "object",
+      "description": "Represents a single meditation session recorded for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the meditation session."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who performed this session. (Relationship: User 1:N MeditationSession)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Date and time when the meditation session started.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Date and time when the meditation session ended.",
+          "format": "date-time"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "description": "Duration of the meditation session in seconds."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "startTime",
+        "endTime",
+        "durationSeconds"
+      ]
+    },
+    "DailyMeditationSummary": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyMeditationSummary",
+      "type": "object",
+      "description": "Represents a daily summary of meditation time for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the daily meditation summary."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User for whom this summary is generated. (Relationship: User 1:N DailyMeditationSummary)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date for which the meditation time is summarized.",
+          "format": "date-time"
+        },
+        "totalMeditationTimeSeconds": {
+          "type": "number",
+          "description": "Total meditation time in seconds for the user on the given date."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "date",
+        "totalMeditationTimeSeconds"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile data. Only the user themselves (or admin roles, implemented via separate collection) can access their own profile.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user, matching the Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/meditationSessions/{sessionId}",
+        "definition": {
+          "entityName": "MeditationSession",
+          "schema": {
+            "$ref": "#/backend/entities/MeditationSession"
+          },
+          "description": "Stores meditation session data for a specific user.  Only the user themselves (or admin roles) can access their own sessions.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user who owns the meditation session."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique ID of the meditation session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/dailyMeditationSummaries/{summaryId}",
+        "definition": {
+          "entityName": "DailyMeditationSummary",
+          "schema": {
+            "$ref": "#/backend/entities/DailyMeditationSummary"
+          },
+          "description": "Stores daily meditation summaries for a specific user. Only the user themselves (or admin roles) can access their summaries.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user who owns the meditation summary."
+            },
+            {
+              "name": "summaryId",
+              "description": "The unique ID of the daily meditation summary."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure data security, scalability, and ease of querying, especially for list operations, while adhering to the principle of Authorization Independence.  It leverages path-based ownership for user-specific data and avoids the use of `get()` calls in security rules by denormalizing necessary authorization data.\n\n*   **Users Collection:** Stores user profiles.  Authorization is based on `request.auth.uid`.\n*   **MeditationSessions Collection:** Stores individual meditation sessions. Located under `/users/{userId}/meditationSessions/{sessionId}` to represent the User 1:N MeditationSession relationship.  Security rules will enforce that only the authenticated user (`request.auth.uid`) matching the `userId` in the path can access these documents.\n*   **DailyMeditationSummaries Collection:** Stores daily meditation summaries.  Located under `/users/{userId}/dailyMeditationSummaries/{summaryId}` to represent the User 1:N DailyMeditationSummary relationship. Security rules will enforce that only the authenticated user (`request.auth.uid`) matching the `userId` in the path can access these documents.\n\nThis design supports QAPs (Rules are not Filters) because list operations can be securely performed on the `meditationSessions` and `dailyMeditationSummaries` subcollections using path-based ownership without requiring any `get()` calls in the security rules."
+  }
+}
