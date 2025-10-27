@@ -53,7 +53,7 @@ export default function SignupPage() {
         username: values.username,
         email: email, // We store the constructed email
         avatar: `https://picsum.photos/seed/${user.uid}/100/100`,
-        role: 'user',
+        role: values.username === 'admin' ? 'admin' : 'user', // Assign admin role if username is 'admin'
         createdAt: serverTimestamp(),
       };
 
