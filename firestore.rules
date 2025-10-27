@@ -1,106 +1,131 @@
 /**
- * @fileOverview Firestore Security Rules for Yatharth 2025 Application.
+ * @fileOverview Firestore Security Rules for the Yatharth 2025 application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, where users can only access their own data.
+ * This ruleset enforces a strict user-ownership model.  Users can only access their own data.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, with subcollections for meditation sessions and daily summaries.
+ * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
+ * - /users/{userId}/meditationSessions/{sessionId}: Stores meditation sessions, accessible only by the owning user.
+ * - /users/{userId}/dailyMeditationSummaries/{summaryId}: Stores daily meditation summaries, accessible only by the owning user.
  *
  * Key Security Decisions:
- * - Listing of the /users collection is explicitly denied to protect user privacy.
- * - Authorization is based on matching the authenticated user's UID against the userId in the path.
- * - Data consistency between the path and the document's internal fields (e.g., userId) is enforced on create and update operations.
+ * - User listing is explicitly denied to prevent unauthorized access to user data.
+ * - All data is nested under /users/{userId} to enforce ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects the root-level /users collection. Users cannot list all users.
-     * @path /users
-     * @allow (get) Anyone can attempt to get a specific user document; if it exists, further rules apply.
-     * @deny (list) Listing all users is prohibited.
-     * @deny (create) Users cannot create documents directly in the /users collection.
-     * @deny (update) Users cannot update documents directly in the /users collection.
-     * @deny (delete) Users cannot delete documents directly in the /users collection.
-     * @principle Prevents unauthorized listing of user data.
-     */
-    match /users {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Enforces user-ownership for /users/{userId} documents.
+     * @description Protects user profiles.  Only the user themselves can access their profile.
      * @path /users/{userId}
-     * @allow (get) User with UID {userId} can read their own profile data.
-     * @allow (create) User with UID {userId} can create their own profile, with matching id.
-     * @allow (update) User with UID {userId} can update their own profile, but cannot change the userId.
-     * @allow (delete) User with UID {userId} can delete their own profile.
-     * @deny (get) User with UID "otherUserId" cannot read user {userId}'s profile.
+     * @allow (create) User with ID 'user123' can create their profile if authenticated as 'user123'.
+     * @allow (get) User with ID 'user123' can read their profile if authenticated as 'user123'.
+     * @allow (update) User with ID 'user123' can update their profile if authenticated as 'user123'.
+     * @allow (delete) User with ID 'user123' can delete their profile if authenticated as 'user123'.
+     * @deny (create) User with ID 'user123' cannot create a profile for 'user456'.
+     * @deny (get) User with ID 'user123' cannot read the profile of 'user456'.
+     * @deny (update) User with ID 'user123' cannot update the profile of 'user456'.
+     * @deny (delete) User with ID 'user123' cannot delete the profile of 'user456'.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
+      // Helper function to check if the user is signed in and owns the document.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for /users/{userId}/meditationSessions/{sessionId} documents.
+     * @description Protects meditation session data for a specific user.
      * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (get) User with UID {userId} can read their own meditation session.
-     * @allow (list) User with UID {userId} can list their own meditation sessions.
-     * @allow (create) User with UID {userId} can create a meditation session with a matching userId.
-     * @allow (update) User with UID {userId} can update their own meditation session, but cannot change the userId.
-     * @allow (delete) User with UID {userId} can delete their own meditation session.
-     * @deny (get) User with UID "otherUserId" cannot read user {userId}'s meditation session.
+     * @allow (create) User with ID 'user123' can create a meditation session if authenticated as 'user123'.
+     * @allow (get) User with ID 'user123' can read a meditation session if authenticated as 'user123'.
+     * @allow (list) User with ID 'user123' can list meditation sessions if authenticated as 'user123'.
+     * @allow (update) User with ID 'user123' can update a meditation session if authenticated as 'user123'.
+     * @allow (delete) User with ID 'user123' can delete a meditation session if authenticated as 'user123'.
+     * @deny (create) User with ID 'user123' cannot create a meditation session for 'user456'.
+     * @deny (get) User with ID 'user123' cannot read a meditation session of 'user456'.
+     * @deny (list) User with ID 'user123' cannot list meditation sessions of 'user456'.
+     * @deny (update) User with ID 'user123' cannot update a meditation session of 'user456'.
+     * @deny (delete) User with ID 'user123' cannot delete a meditation session of 'user456'.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/meditationSessions/{sessionId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.userId == request.resource.data.userId;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      // Inherit isSignedIn() and isOwner() from parent scope
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+        function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+        }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for /users/{userId}/dailyMeditationSummaries/{summaryId} documents.
+     * @description Protects daily meditation summary data for a specific user.
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (get) User with UID {userId} can read their own daily meditation summary.
-     * @allow (list) User with UID {userId} can list their own daily meditation summaries.
-     * @allow (create) User with UID {userId} can create a daily meditation summary with a matching userId.
-     * @allow (update) User with UID {userId} can update their own daily meditation summary, but cannot change the userId.
-     * @allow (delete) User with UID {userId} can delete their own daily meditation summary.
-     * @deny (get) User with UID "otherUserId" cannot read user {userId}'s daily meditation summary.
+     * @allow (create) User with ID 'user123' can create a daily meditation summary if authenticated as 'user123'.
+     * @allow (get) User with ID 'user123' can read a daily meditation summary if authenticated as 'user123'.
+     * @allow (list) User with ID 'user123' can list daily meditation summaries if authenticated as 'user123'.
+     * @allow (update) User with ID 'user123' can update a daily meditation summary if authenticated as 'user123'.
+     * @allow (delete) User with ID 'user123' can delete a daily meditation summary if authenticated as 'user123'.
+     * @deny (create) User with ID 'user123' cannot create a daily meditation summary for 'user456'.
+     * @deny (get) User with ID 'user123' cannot read a daily meditation summary of 'user456'.
+     * @deny (list) User with ID 'user123' cannot list daily meditation summaries of 'user456'.
+     * @deny (update) User with ID 'user123' cannot update a daily meditation summary of 'user456'.
+     * @deny (delete) User with ID 'user123' cannot delete a daily meditation summary of 'user456'.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.userId == request.resource.data.userId;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      // Inherit isSignedIn() and isOwner() from parent scope
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isSignedIn() && isOwner(userId) && resource != null;
   }
 }
