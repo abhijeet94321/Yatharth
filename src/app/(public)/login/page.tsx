@@ -17,9 +17,12 @@ import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email.' }),
+  username: z.string().min(1, { message: 'Please enter your username.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
+
+// Simple function to create an email from a username
+const formatEmailForAuth = (username: string) => `${username}@yatharth2025.app`;
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -30,7 +33,7 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      username: '',
       password: '',
     },
   });
@@ -38,13 +41,21 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const email = formatEmailForAuth(values.username);
+      await signInWithEmailAndPassword(auth, email, values.password);
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
+      let description = 'Invalid username or password. Please try again.';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+        description = 'This user does not exist. Please sign up first.';
+      } else if (error.message) {
+        description = error.message;
+      }
+      
       toast({
         title: 'Login Failed',
-        description: error.message || 'Invalid username or password. Please try again.',
+        description: description,
         variant: 'destructive',
       });
     } finally {
@@ -57,19 +68,19 @@ export default function LoginPage() {
       <CardHeader className="items-center text-center">
         <Logo />
         <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
-        <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
+        <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="user@example.com" {...field} />
+                    <Input placeholder="username123" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

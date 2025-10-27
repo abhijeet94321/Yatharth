@@ -15,14 +15,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email.' }),
+  username: z.string().min(3, { message: 'Username must be at least 3 characters.' }).regex(/^[a-zA-Z0-9]+$/, 'Username can only contain letters and numbers.'),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
+
+const formatEmailForAuth = (username: string) => `${username}@yatharth2025.app`;
 
 export default function SignupPage() {
   const auth = useAuth();
@@ -35,7 +37,7 @@ export default function SignupPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      email: '',
+      username: '',
       password: '',
     },
   });
@@ -43,26 +45,37 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const email = formatEmailForAuth(values.username);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, values.password);
       const user = userCredential.user;
 
       const userProfile = {
         id: user.uid,
         name: values.name,
-        email: values.email,
+        username: values.username,
+        email: email, // We store the constructed email
         avatar: `https://picsum.photos/seed/${user.uid}/100/100`,
         role: 'user',
+        createdAt: serverTimestamp(),
       };
 
       const userDocRef = doc(firestore, 'users', user.uid);
+      // Use non-blocking write as intended by the app's architecture
       setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
 
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
+      let description = 'Could not create account.';
+      if (error.code === 'auth/email-already-in-use') {
+        description = 'This username is already taken. Please choose another one.';
+      } else if (error.message) {
+        description = error.message;
+      }
+      
       toast({
         title: 'Signup Failed',
-        description: error.message || 'Could not create account.',
+        description: description,
         variant: 'destructive',
       });
     } finally {
@@ -93,14 +106,14 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
-            <FormField
+             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" {...field} />
+                    <Input placeholder="username123" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

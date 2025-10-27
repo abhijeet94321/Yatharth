@@ -12,13 +12,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { SidebarTrigger } from '../ui/sidebar';
-import { doc, getFirestore } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
+import { useFirestore } from '@/firebase';
 
 export function Header() {
   const { user } = useUser();
   const auth = useAuth();
-  const firestore = getFirestore();
+  const firestore = useFirestore();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -54,7 +55,7 @@ export function Header() {
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">{userProfile.name}</p>
               <p className="text-xs leading-none text-muted-foreground">
-                {userProfile.email}
+                @{userProfile.username}
               </p>
             </div>
           </DropdownMenuLabel>

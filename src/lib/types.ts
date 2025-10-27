@@ -3,6 +3,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 export type UserProfile = {
   id: string;
   name: string;
+  username: string;
   email: string;
   avatar: string;
   role: 'user' | 'admin';
