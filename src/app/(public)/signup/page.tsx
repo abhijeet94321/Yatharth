@@ -19,7 +19,6 @@ import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   username: z.string().min(3, { message: 'Username must be at least 3 characters.' }).regex(/^[a-zA-Z0-9]+$/, 'Username can only contain letters and numbers.'),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
@@ -36,7 +35,6 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
       username: '',
       password: '',
     },
@@ -51,7 +49,7 @@ export default function SignupPage() {
 
       const userProfile = {
         id: user.uid,
-        name: values.name,
+        name: values.username, // Using username as name
         username: values.username,
         email: email, // We store the constructed email
         avatar: `https://picsum.photos/seed/${user.uid}/100/100`,
@@ -93,19 +91,6 @@ export default function SignupPage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Your Name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
              <FormField
               control={form.control}
               name="username"
