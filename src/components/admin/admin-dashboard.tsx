@@ -64,7 +64,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </div>
       )}
 
-      {!sessionsLoading && selectedUser && (
+      {selectedUserId && !sessionsLoading && selectedUser && (
         <MeditationChart 
           sessions={selectedUserSessions || []} 
           title={`${selectedUser.name}'s Progress`}
