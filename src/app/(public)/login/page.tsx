@@ -48,11 +48,12 @@ export default function LoginPage() {
       console.error(error);
       let description = 'An unexpected error occurred. Please try again.';
       
-      // The 'auth/invalid-credential' code can mean either user not found or wrong password.
-      // Firebase Auth has reduced error message specificity to prevent user enumeration attacks.
-      // We'll provide a message that covers both cases.
+      // Handle specific Firebase Auth error codes
       if (error.code === 'auth/invalid-credential') {
+        // This code covers both user not found and wrong password to prevent user enumeration attacks.
         description = 'Invalid username or password. Please check your credentials or sign up.';
+      } else if (error.code === 'auth/user-disabled') {
+        description = 'This account has been disabled. Please contact support for assistance.';
       } else if (error.message) {
         description = error.message;
       }
