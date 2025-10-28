@@ -6,6 +6,7 @@ import { MeditationTimer } from '@/components/dashboard/meditation-timer';
 import { DailyStats } from '@/components/dashboard/daily-stats';
 import { MeditationChart } from '@/components/dashboard/meditation-chart';
 import type { MeditationSession } from '@/lib/types';
+import { TodaysSessions } from '@/components/dashboard/todays-sessions';
 
 function DashboardContent() {
     const { user } = useUser();
@@ -16,7 +17,7 @@ function DashboardContent() {
         return collection(firestore, 'users', user.uid, 'meditationSessions');
     }, [firestore, user]);
 
-    const { data: userSessions, isLoading } = useCollection<MeditationSession>(sessionsQuery);
+    const { data: userSessions } = useCollection<MeditationSession>(sessionsQuery);
 
     if (!user) {
         return null; // Or a loading state
@@ -29,6 +30,7 @@ function DashboardContent() {
             </div>
             <div className="space-y-6">
                 <DailyStats sessions={userSessions || []} />
+                <TodaysSessions sessions={userSessions || []} userId={user.uid} />
             </div>
             <div className="lg:col-span-3">
                 <MeditationChart sessions={userSessions || []} />
