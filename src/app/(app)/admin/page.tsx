@@ -2,11 +2,11 @@
 
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
-import type { UserProfile, MeditationSession } from '@/lib/types';
+import type { UserProfile } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { collection, doc, getFirestore } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
 
 function AdminPage() {
@@ -24,14 +24,8 @@ function AdminPage() {
     const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
     const { data: allUsers, isLoading: usersLoading } = useCollection<UserProfile>(usersQuery);
 
-    // Note: This is not ideal for large datasets, in a real app you might paginate
-    // or fetch sessions only for the selected user.
-    const allSessionsQuery = useMemoFirebase(() => collection(firestore, 'meditationSessions'), [firestore]);
-    const { data: allSessions, isLoading: sessionsLoading } = useCollection<MeditationSession>(allSessionsQuery);
-
-
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading && userProfile?.role !== 'admin') {
+        if (!isUserLoading && !isProfileLoading && userProfile && userProfile?.role !== 'admin') {
             router.replace('/dashboard');
         }
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
@@ -49,7 +43,7 @@ function AdminPage() {
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-            {allUsers && <AdminDashboard users={allUsers} sessions={allSessions || []} />}
+            {allUsers && <AdminDashboard users={allUsers} sessions={[]} />}
         </div>
     );
 }

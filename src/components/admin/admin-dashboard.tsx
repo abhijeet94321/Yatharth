@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import type { UserProfile, MeditationSession } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MeditationChart } from '../dashboard/meditation-chart';
@@ -9,10 +9,10 @@ import { collection } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   users: UserProfile[];
-  sessions: MeditationSession[]; // This might become redundant if we fetch per user
+  sessions: MeditationSession[]; // This will not be used directly anymore
 }
 
-export function AdminDashboard({ users, sessions: allSessions }: AdminDashboardProps) {
+export function AdminDashboard({ users }: AdminDashboardProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(users[0]?.id || null);
   const firestore = useFirestore();
 
@@ -21,8 +21,7 @@ export function AdminDashboard({ users, sessions: allSessions }: AdminDashboardP
     return collection(firestore, 'users', selectedUserId, 'meditationSessions');
   }, [firestore, selectedUserId]);
 
-  const { data: selectedUserSessions } = useCollection<MeditationSession>(selectedUserSessionsQuery);
-
+  const { data: selectedUserSessions, isLoading: sessionsLoading } = useCollection<MeditationSession>(selectedUserSessionsQuery);
 
   const selectedUser = users.find(u => u.id === selectedUserId);
 
@@ -53,7 +52,7 @@ export function AdminDashboard({ users, sessions: allSessions }: AdminDashboardP
         <MeditationChart 
           sessions={selectedUserSessions || []} 
           title={`${selectedUser.name}'s Progress`}
-          description={`Meditation data for ${selectedUser.email}.`}
+          description={sessionsLoading ? "Loading sessions..." : `Meditation data for ${selectedUser.email}.`}
         />
       )}
     </div>
