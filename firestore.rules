@@ -1,21 +1,3 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for all data.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile data.
- * - /users/{userId}/meditationSessions/{sessionId}: Stores meditation session data for a specific user.
- * - /users/{userId}/dailyMeditationSummaries/{summaryId}: Stores daily meditation summaries for a specific user.
- *
- * Key Security Decisions:
- * - All data is private and accessible only to the owning user, based on their Firebase Authentication UID.
- * - List operations on user subcollections are allowed only for the owning user.
- * - Data shape is not strictly validated to allow for rapid prototyping.
- *
- * Denormalization for Authorization:
- * - The `userId` is present both in the path and within the documents in the `meditationSessions` and `dailyMeditationSummaries` collections.
- *   This allows for efficient path-based authorization without the need for `get()` calls.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,11 +5,15 @@ service cloud.firestore {
     /**
      * @description Controls access to user profile data.
      * @path /users/{userId}
-     * @allow (create) User with matching UID can create their profile.
-     * @allow (get, update, delete) User with matching UID can access/modify their profile.
-     * @deny (create) User cannot create a profile with a mismatched UID.
-     * @deny (get, update, delete) User cannot access/modify another user's profile.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - User with UID 'user123' can create their profile at /users/user123 if request.auth.uid == 'user123'.
+     * @allow (get) - User with UID 'user123' can read their profile at /users/user123 if request.auth.uid == 'user123'.
+     * @allow (update) - User with UID 'user123' can update their profile at /users/user123 if request.auth.uid == 'user123'.
+     * @allow (delete) - User with UID 'user123' can delete their profile at /users/user123 if request.auth.uid == 'user123'.
+     * @deny (create) - User with UID 'user456' cannot create a profile at /users/user123.
+     * @deny (get) - User with UID 'user456' cannot read the profile at /users/user123.
+     * @deny (update) - User with UID 'user456' cannot update the profile at /users/user123.
+     * @deny (delete) - User with UID 'user456' cannot delete the profile at /users/user123.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
       function isSignedIn() {
@@ -39,7 +25,7 @@ service cloud.firestore {
       }
 
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
+      allow list: if false; // No listing of users.
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
@@ -48,11 +34,17 @@ service cloud.firestore {
     /**
      * @description Controls access to meditation session data for a specific user.
      * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (create) User with matching UID can create a session under their profile.
-     * @allow (get, list, update, delete) User with matching UID can access/modify their own sessions.
-     * @deny (create) User cannot create a session under another user's profile.
-     * @deny (get, list, update, delete) User cannot access/modify another user's sessions.
-     * @principle Enforces document ownership and restricts access to a user's own data.
+     * @allow (create) - User with UID 'user123' can create a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
+     * @allow (get) - User with UID 'user123' can read a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
+     * @allow (list) - User with UID 'user123' can list sessions under /users/user123/meditationSessions if request.auth.uid == 'user123'.
+     * @allow (update) - User with UID 'user123' can update a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
+     * @allow (delete) - User with UID 'user123' can delete a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
+     * @deny (create) - User with UID 'user456' cannot create a session under /users/user123/meditationSessions/session1.
+     * @deny (get) - User with UID 'user456' cannot read a session under /users/user123/meditationSessions/session1.
+     * @deny (list) - User with UID 'user456' cannot list sessions under /users/user123/meditationSessions.
+     * @deny (update) - User with UID 'user456' cannot update a session under /users/user123/meditationSessions/session1.
+     * @deny (delete) - User with UID 'user456' cannot delete a session under /users/user123/meditationSessions/session1.
+     * @principle Enforces document ownership and relational integrity for meditation sessions.
      */
     match /users/{userId}/meditationSessions/{sessionId} {
       function isSignedIn() {
@@ -63,21 +55,31 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
+      function isExistingOwner(userId) {
+        return isOwner(userId) && exists(resource);
+      }
+
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
+      allow list: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to daily meditation summaries for a specific user.
+     * @description Controls access to daily meditation summary data for a specific user.
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (create) User with matching UID can create a summary under their profile.
-     * @allow (get, list, update, delete) User with matching UID can access/modify their own summaries.
-     * @deny (create) User cannot create a summary under another user's profile.
-     * @deny (get, list, update, delete) User cannot access/modify another user's summaries.
-     * @principle Enforces document ownership and restricts access to a user's own data.
+     * @allow (create) - User with UID 'user123' can create a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
+     * @allow (get) - User with UID 'user123' can read a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
+     * @allow (list) - User with UID 'user123' can list summaries under /users/user123/dailyMeditationSummaries if request.auth.uid == 'user123'.
+     * @allow (update) - User with UID 'user123' can update a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
+     * @allow (delete) - User with UID 'user123' can delete a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
+     * @deny (create) - User with UID 'user456' cannot create a summary under /users/user123/dailyMeditationSummaries/summary1.
+     * @deny (get) - User with UID 'user456' cannot read a summary under /users/user123/dailyMeditationSummaries/summary1.
+     * @deny (list) - User with UID 'user456' cannot list summaries under /users/user123/dailyMeditationSummaries.
+     * @deny (update) - User with UID 'user456' cannot update a summary under /users/user123/dailyMeditationSummaries/summary1.
+     * @deny (delete) - User with UID 'user456' cannot delete a summary under /users/user123/dailyMeditationSummaries/summary1.
+     * @principle Enforces document ownership and relational integrity for daily meditation summaries.
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
       function isSignedIn() {
@@ -88,11 +90,15 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
+      function isExistingOwner(userId) {
+        return isOwner(userId) && exists(resource);
+      }
+
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
+      allow list: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
   }
 }
