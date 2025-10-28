@@ -1,21 +1,26 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { UserProfile, MeditationSession } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 interface AdminDashboardProps {
   users: UserProfile[];
-  sessions: MeditationSession[]; // This will not be used directly anymore
 }
 
 export function AdminDashboard({ users }: AdminDashboardProps) {
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(users[0]?.id || null);
+  const { user: adminUser } = useUser();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const firestore = useFirestore();
+
+  const otherUsers = useMemo(() => {
+    if (!adminUser) return [];
+    return users.filter(u => u.id !== adminUser.uid);
+  }, [users, adminUser]);
 
   const selectedUserSessionsQuery = useMemoFirebase(() => {
     if (!selectedUserId) return null;
@@ -34,22 +39,26 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
           <CardDescription>Select a user to view their meditation data.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
-            <SelectTrigger className="w-full md:w-[280px]">
-              <SelectValue placeholder="Select a user" />
-            </SelectTrigger>
-            <SelectContent>
-              {users.map(user => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name} (@{user.username})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {otherUsers.length > 0 ? (
+            <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
+              <SelectTrigger className="w-full md:w-[280px]">
+                <SelectValue placeholder="Select a user" />
+              </SelectTrigger>
+              <SelectContent>
+                {otherUsers.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name} (@{user.username})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+             <p className="text-sm text-muted-foreground">No other users found.</p>
+          )}
         </CardContent>
       </Card>
-
-      {sessionsLoading && (
+      
+      {selectedUserId && sessionsLoading && (
         <div className="flex h-64 w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -61,6 +70,14 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
           title={`${selectedUser.name}'s Progress`}
           description={`Meditation data for ${selectedUser.email}.`}
         />
+      )}
+
+      {!selectedUserId && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Please select a user to view their progress.</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
