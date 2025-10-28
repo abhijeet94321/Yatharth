@@ -3,102 +3,80 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Defines a global function to check if a user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Defines a global function to check if the request is made by the owner of the document.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Defines a global function to check if the existing document is owned by the user.
+     */
+    function isExistingOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Enforces that the user ID in the path matches the authenticated user's ID.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their profile at /users/user123 if request.auth.uid == 'user123'.
-     * @allow (get) - User with UID 'user123' can read their profile at /users/user123 if request.auth.uid == 'user123'.
-     * @allow (update) - User with UID 'user123' can update their profile at /users/user123 if request.auth.uid == 'user123'.
-     * @allow (delete) - User with UID 'user123' can delete their profile at /users/user123 if request.auth.uid == 'user123'.
-     * @deny (create) - User with UID 'user456' cannot create a profile at /users/user123.
-     * @deny (get) - User with UID 'user456' cannot read the profile at /users/user123.
-     * @deny (update) - User with UID 'user456' cannot update the profile at /users/user123.
-     * @deny (delete) - User with UID 'user456' cannot delete the profile at /users/user123.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with ID 'user123' creates their profile.
+     *   - auth: { uid: 'user123' }
+     *   - request.resource.data: { id: 'user123', email: 'test@example.com', registrationDate: '2024-01-01' }
+     * @deny (create) - User with ID 'user123' tries to create a profile for 'user456'.
+     *   - auth: { uid: 'user123' }
+     *   - request.resource.data: { id: 'user456', email: 'test@example.com', registrationDate: '2024-01-01' }
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // No listing of users.
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to meditation session data for a specific user.
+     * @description Enforces that only the owner can manage their meditation sessions.
      * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (create) - User with UID 'user123' can create a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
-     * @allow (get) - User with UID 'user123' can read a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
-     * @allow (list) - User with UID 'user123' can list sessions under /users/user123/meditationSessions if request.auth.uid == 'user123'.
-     * @allow (update) - User with UID 'user123' can update a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
-     * @allow (delete) - User with UID 'user123' can delete a session under /users/user123/meditationSessions/session1 if request.auth.uid == 'user123'.
-     * @deny (create) - User with UID 'user456' cannot create a session under /users/user123/meditationSessions/session1.
-     * @deny (get) - User with UID 'user456' cannot read a session under /users/user123/meditationSessions/session1.
-     * @deny (list) - User with UID 'user456' cannot list sessions under /users/user123/meditationSessions.
-     * @deny (update) - User with UID 'user456' cannot update a session under /users/user123/meditationSessions/session1.
-     * @deny (delete) - User with UID 'user456' cannot delete a session under /users/user123/meditationSessions/session1.
-     * @principle Enforces document ownership and relational integrity for meditation sessions.
+     * @allow (create) - User with ID 'user123' creates a meditation session.
+     *   - auth: { uid: 'user123' }
+     *   - request.resource.data: { id: 'session1', userId: 'user123', startTime: '2024-01-01', endTime: '2024-01-01', durationSeconds: 600 }
+     * @deny (update) - User with ID 'user123' tries to update a meditation session for 'user456'.
+     *   - auth: { uid: 'user123' }
+     *   - request.resource.data: { id: 'session1', userId: 'user456', startTime: '2024-01-01', endTime: '2024-01-01', durationSeconds: 600 }
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/meditationSessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && exists(resource);
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to daily meditation summary data for a specific user.
+     * @description Enforces that only the owner can manage their daily meditation summaries.
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (create) - User with UID 'user123' can create a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
-     * @allow (get) - User with UID 'user123' can read a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
-     * @allow (list) - User with UID 'user123' can list summaries under /users/user123/dailyMeditationSummaries if request.auth.uid == 'user123'.
-     * @allow (update) - User with UID 'user123' can update a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
-     * @allow (delete) - User with UID 'user123' can delete a summary under /users/user123/dailyMeditationSummaries/summary1 if request.auth.uid == 'user123'.
-     * @deny (create) - User with UID 'user456' cannot create a summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @deny (get) - User with UID 'user456' cannot read a summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @deny (list) - User with UID 'user456' cannot list summaries under /users/user123/dailyMeditationSummaries.
-     * @deny (update) - User with UID 'user456' cannot update a summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @deny (delete) - User with UID 'user456' cannot delete a summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @principle Enforces document ownership and relational integrity for daily meditation summaries.
+     * @allow (create) - User with ID 'user123' creates a daily meditation summary.
+     *   - auth: { uid: 'user123' }
+     *   - request.resource.data: { id: 'summary1', userId: 'user123', date: '2024-01-01', totalMeditationTimeSeconds: 600 }
+     * @deny (delete) - User with ID 'user123' tries to delete a summary for 'user456'.
+     *   - auth: { uid: 'user123' }
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && exists(resource);
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
