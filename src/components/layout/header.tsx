@@ -34,7 +34,7 @@ export function Header() {
     auth.signOut();
   };
 
-  if (isUserLoading || isProfileLoading) {
+  if (isUserLoading || (user && !userProfile)) {
     return (
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
             <SidebarTrigger className="md:hidden"/>
@@ -43,8 +43,18 @@ export function Header() {
         </header>
     );
   }
+  
+  if (!user || !userProfile) {
+    // This case will be hit if the user is logged out, or profile is loading for a logged-in user.
+    // We show a minimal header, without the user profile section.
+    return (
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
+            <SidebarTrigger className="md:hidden"/>
+            <div className="flex-1" />
+        </header>
+    );
+  }
 
-  if (!user || !userProfile) return null;
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
