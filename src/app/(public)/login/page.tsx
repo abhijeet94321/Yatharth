@@ -49,8 +49,7 @@ export default function LoginPage() {
       let description = 'An unexpected error occurred. Please try again.';
       
       // Handle specific Firebase Auth error codes
-      if (error.code === 'auth/invalid-credential') {
-        // This code covers both user not found and wrong password to prevent user enumeration attacks.
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         description = 'Invalid username or password. Please check your credentials or sign up.';
       } else if (error.code === 'auth/user-disabled') {
         description = 'This account has been disabled. Please contact support for assistance.';
