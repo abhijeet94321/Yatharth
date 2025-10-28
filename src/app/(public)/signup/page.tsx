@@ -17,6 +17,7 @@ import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'Username must be at least 3 characters.' }).regex(/^[a-zA-Z0-9]+$/, 'Username can only contain letters and numbers.'),
@@ -31,6 +32,8 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorDialogMessage, setErrorDialogMessage] = useState('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,73 +67,91 @@ export default function SignupPage() {
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
-      let description = 'Could not create account.';
       if (error.code === 'auth/email-already-in-use') {
-        description = 'This username is already taken. Please choose another one.';
-      } else if (error.message) {
-        description = error.message;
+        setErrorDialogMessage('This username is already taken. Would you like to sign in instead?');
+        setErrorDialogOpen(true);
+      } else {
+        toast({
+          title: 'Signup Failed',
+          description: error.message || 'Could not create account.',
+          variant: 'destructive',
+        });
       }
-      
-      toast({
-        title: 'Signup Failed',
-        description: description,
-        variant: 'destructive',
-      });
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="items-center text-center">
-        <Logo />
-        <CardTitle className="text-2xl pt-4">Create an Account</CardTitle>
-        <CardDescription>Start your meditation journey with us.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Username</FormLabel>
-                  <FormControl>
-                    <Input placeholder="username123" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating Account...' : 'Sign Up'}
+    <>
+      <Card className="w-full max-w-sm">
+        <CardHeader className="items-center text-center">
+          <Logo />
+          <CardTitle className="text-2xl pt-4">Create an Account</CardTitle>
+          <CardDescription>Start your meditation journey with us.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+               <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="username123" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="********" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating Account...' : 'Sign Up'}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Username Taken</AlertDialogTitle>
+            <AlertDialogDescription>
+              {errorDialogMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+             <Button variant="outline" onClick={() => setErrorDialogOpen(false)}>
+              Cancel
             </Button>
-          </form>
-        </Form>
-      </CardContent>
-      <CardFooter>
-        <p className="text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </CardFooter>
-    </Card>
+            <AlertDialogAction asChild>
+              <Link href="/login">Sign In</Link>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
