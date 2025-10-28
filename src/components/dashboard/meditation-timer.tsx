@@ -1,64 +1,53 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Pause, Play, StopCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-
+import { LogIn } from 'lucide-react';
 
 interface MeditationTimerProps {
   userId: string;
 }
 
 export function MeditationTimer({ userId }: MeditationTimerProps) {
-  const [time, setTime] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  const [isPaused, setIsPaused] = useState(true);
-  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [hours, setHours] = useState('');
+  const [minutes, setMinutes] = useState('');
+  const [seconds, setSeconds] = useState('');
   const { toast } = useToast();
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const firestore = useFirestore();
 
-  useEffect(() => {
-    if (isActive && !isPaused) {
-      timerRef.current = setInterval(() => {
-        setTime((prevTime) => prevTime + 1);
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
+  const handleLogSession = async () => {
+    const h = parseInt(hours, 10) || 0;
+    const m = parseInt(minutes, 10) || 0;
+    const s = parseInt(seconds, 10) || 0;
+
+    const totalSeconds = (h * 3600) + (m * 60) + s;
+
+    if (totalSeconds <= 0) {
+      toast({
+        title: 'Invalid Time',
+        description: 'Please enter a duration greater than zero.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isActive, isPaused]);
-
-  const handleStart = () => {
-    setStartTime(new Date());
-    setIsActive(true);
-    setIsPaused(false);
-  };
-
-  const handlePauseResume = () => {
-    setIsPaused(!isPaused);
-  };
-
-  const handleStop = async () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    
-    if (time > 0 && userId && startTime) {
+    if (userId) {
       const sessionsColRef = collection(firestore, 'users', userId, 'meditationSessions');
+      
+      const endTime = new Date();
+      const startTime = new Date(endTime.getTime() - totalSeconds * 1000);
+
       const sessionData = {
         userId,
         startTime: startTime.toISOString(),
-        endTime: new Date().toISOString(),
-        duration: time,
+        endTime: endTime.toISOString(),
+        duration: totalSeconds,
         createdAt: serverTimestamp(),
       };
       
@@ -66,52 +55,83 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
 
       toast({
         title: 'Session Saved!',
-        description: `You meditated for ${formatTime(time)}. Great work!`,
+        description: `You logged a session of ${formatDuration(totalSeconds)}. Keep it up!`,
         className: 'bg-accent text-accent-foreground',
       });
+      
+      // Reset fields
+      setHours('');
+      setMinutes('');
+      setSeconds('');
     }
-    
-    setIsActive(false);
-    setTime(0);
-    setStartTime(null);
   };
 
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-    return `${h}:${m}:${s}`;
+  const formatDuration = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    
+    let parts = [];
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0) parts.push(`${m}m`);
+    if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+    
+    return parts.join(' ');
+  };
+
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string, max: number) => {
+    const num = parseInt(value, 10);
+    if (value === '' || (num >= 0 && num <= max)) {
+      setter(value);
+    }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Meditation Session</CardTitle>
+        <CardTitle>Log Meditation Session</CardTitle>
+        <CardDescription>Enter the duration of your completed meditation session.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center gap-6">
-        <div
-          className="font-mono text-7xl sm:text-8xl md:text-9xl font-bold tabular-nums"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {formatTime(time)}
+        <div className="flex w-full max-w-md items-center justify-center gap-2 sm:gap-4">
+          <div className="flex-1 text-center">
+            <Input
+              type="number"
+              value={hours}
+              onChange={(e) => handleInputChange(setHours, e.target.value, 99)}
+              placeholder="0"
+              className="text-center text-lg font-mono"
+              aria-label="Hours"
+            />
+            <label className="text-xs text-muted-foreground">Hours</label>
+          </div>
+          <div className="flex-1 text-center">
+            <Input
+              type="number"
+              value={minutes}
+              onChange={(e) => handleInputChange(setMinutes, e.target.value, 59)}
+              placeholder="00"
+              className="text-center text-lg font-mono"
+              aria-label="Minutes"
+            />
+             <label className="text-xs text-muted-foreground">Minutes</label>
+          </div>
+          <div className="flex-1 text-center">
+            <Input
+              type="number"
+              value={seconds}
+              onChange={(e) => handleInputChange(setSeconds, e.target.value, 59)}
+              placeholder="00"
+              className="text-center text-lg font-mono"
+              aria-label="Seconds"
+            />
+             <label className="text-xs text-muted-foreground">Seconds</label>
+          </div>
         </div>
         <div className="flex w-full items-center justify-center gap-4">
-          {!isActive ? (
-            <Button size="lg" onClick={handleStart} aria-label="Start meditation session">
-              <Play className="mr-2" /> Start
-            </Button>
-          ) : (
-            <>
-              <Button size="lg" variant="outline" onClick={handlePauseResume} aria-label={isPaused ? "Resume meditation session" : "Pause meditation session"}>
-                {isPaused ? <Play className="mr-2" /> : <Pause className="mr-2" />}
-                {isPaused ? 'Resume' : 'Pause'}
-              </Button>
-              <Button size="lg" variant="destructive" onClick={handleStop} aria-label="Stop meditation session">
-                <StopCircle className="mr-2" /> Stop
-              </Button>
-            </>
-          )}
+          <Button size="lg" onClick={handleLogSession} aria-label="Log meditation session">
+            <LogIn className="mr-2" /> Log Session
+          </Button>
         </div>
       </CardContent>
     </Card>
