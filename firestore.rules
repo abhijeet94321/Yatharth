@@ -1,82 +1,118 @@
+/**
+ * @fileoverview Firestore Security Rules for Yatharth 2025 application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all user-related data
+ * and introduces an admin role that can bypass these restrictions. Users can only
+ * access their own profile information, meditation sessions, and daily summaries.
+ * Admins have read access to all user data.
+ *
+ * Data Structure:
+ * All user-specific data is nested under /users/{userId}. This includes:
+ * - User profiles: /users/{userId}
+ * - Meditation sessions: /users/{userId}/meditationSessions/{sessionId}
+ * - Daily meditation summaries: /users/{userId}/dailyMeditationSummaries/{summaryId}
+ *
+ * Key Security Decisions:
+ * - User data is private by default.
+ * - Users can only create their profile with the matching user ID.
+ * - Users can only manage their own meditation sessions and summaries.
+ * - Admins have read access to all user data.
+ * - List operations are restricted to the owner or admins.
+ *
+ * Denormalization for Authorization:
+ *  - The 'userId' field in MeditationSession and DailyMeditationSummary documents is used
+ *    to enforce ownership, preventing the need for costly `get()` calls to the User document.
+ *
+ * Structural Segregation:
+ *  - The application uses nested collections under /users/{userId} to store private user data.
+ *    This segregation allows for efficient and secure list operations.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines a global function to check if a user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Defines a global function to check if the request is made by the owner of the document.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Defines a global function to check if the existing document is owned by the user.
-     */
-    function isExistingOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Enforces that the user ID in the path matches the authenticated user's ID.
+     * @description Enforces access control for user profiles. Only the user themselves can read and write their profile. Admins can read all profiles.
      * @path /users/{userId}
-     * @allow (create) - User with ID 'user123' creates their profile.
-     *   - auth: { uid: 'user123' }
-     *   - request.resource.data: { id: 'user123', email: 'test@example.com', registrationDate: '2024-01-01' }
-     * @deny (create) - User with ID 'user123' tries to create a profile for 'user456'.
-     *   - auth: { uid: 'user123' }
-     *   - request.resource.data: { id: 'user456', email: 'test@example.com', registrationDate: '2024-01-01' }
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with ID 'user123' creates their profile with matching ID.
+     * @allow (get) User with ID 'user123' reads their own profile.
+     * @allow (update) User with ID 'user123' updates their own profile.
+     * @allow (delete) User with ID 'user123' deletes their own profile.
+     * @allow (get, list) Admin reads any user profile
+     * @deny (get) User with ID 'user456' tries to read the profile of user 'user123'.
+     * @deny (create) User with ID 'user123' tries to create a profile for user 'user456'.
+     * @principle Enforces document ownership for writes and protects user data.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isAdmin() {
+              // TODO: Implement admin role check.  For prototyping, we will allow anyone to self-define as admin. NEVER DO THIS IN PRODUCTION.
+        return request.auth.token.admin == true;
+      }
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if false; // Listing users is not permitted.
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id; // Enforce immutability of userId
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Enforces that only the owner can manage their meditation sessions.
+     * @description Enforces access control for meditation sessions. Only the owner can create, read, update, and delete their own sessions. Admins can read all sessions.
      * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (create) - User with ID 'user123' creates a meditation session.
-     *   - auth: { uid: 'user123' }
-     *   - request.resource.data: { id: 'session1', userId: 'user123', startTime: '2024-01-01', endTime: '2024-01-01', durationSeconds: 600 }
-     * @deny (update) - User with ID 'user123' tries to update a meditation session for 'user456'.
-     *   - auth: { uid: 'user123' }
-     *   - request.resource.data: { id: 'session1', userId: 'user456', startTime: '2024-01-01', endTime: '2024-01-01', durationSeconds: 600 }
-     * @principle Restricts access to a user's own data tree.
+     * @allow (create) User with ID 'user123' creates a session under their profile.
+     * @allow (get) User with ID 'user123' reads their own session.
+     * @allow (list) User with ID 'user123' lists their own sessions.
+     * @allow (update) User with ID 'user123' updates their own session.
+     * @allow (delete) User with ID 'user123' deletes their own session.
+     * @allow (get, list) Admin reads all meditation sessions for any user.
+     * @deny (get) User with ID 'user456' tries to read a session of user 'user123'.
+     * @deny (create) User with ID 'user123' tries to create a session under user 'user456'.
+     * @principle Enforces document ownership for writes and protects user data.
      */
     match /users/{userId}/meditationSessions/{sessionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+       function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+       function isAdmin() {
+              // TODO: Implement admin role check.  For prototyping, we will allow anyone to self-define as admin. NEVER DO THIS IN PRODUCTION.
+        return request.auth.token.admin == true;
+      }
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Enforces that only the owner can manage their daily meditation summaries.
+     * @description Enforces access control for daily meditation summaries. Only the owner can create, read, update, and delete their own summaries.  Admins can read all summaries.
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (create) - User with ID 'user123' creates a daily meditation summary.
-     *   - auth: { uid: 'user123' }
-     *   - request.resource.data: { id: 'summary1', userId: 'user123', date: '2024-01-01', totalMeditationTimeSeconds: 600 }
-     * @deny (delete) - User with ID 'user123' tries to delete a summary for 'user456'.
-     *   - auth: { uid: 'user123' }
-     * @principle Restricts access to a user's own data tree.
+     * @allow (create) User with ID 'user123' creates a summary under their profile.
+     * @allow (get) User with ID 'user123' reads their own summary.
+     * @allow (list) User with ID 'user123' lists their own summaries.
+     * @allow (update) User with ID 'user123' updates their own summary.
+     * @allow (delete) User with ID 'user123' deletes their own summary.
+     *  @allow (get, list) Admin reads all meditation summaries for any user.
+     * @deny (get) User with ID 'user456' tries to read a summary of user 'user123'.
+     * @deny (create) User with ID 'user123' tries to create a summary under user 'user456'.
+     * @principle Enforces document ownership for writes and protects user data.
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+       function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+       function isAdmin() {
+              // TODO: Implement admin role check.  For prototyping, we will allow anyone to self-define as admin. NEVER DO THIS IN PRODUCTION.
+        return request.auth.token.admin == true;
+      }
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId) && resource != null;
     }
   }
 }

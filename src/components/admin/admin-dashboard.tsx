@@ -6,6 +6,7 @@ import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
 
 interface AdminDashboardProps {
   users: UserProfile[];
@@ -33,14 +34,14 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
           <CardDescription>Select a user to view their meditation data.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select onValueChange={setSelectedUserId} value={selectedUserId || undefined}>
+          <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
             <SelectTrigger className="w-full md:w-[280px]">
               <SelectValue placeholder="Select a user" />
             </SelectTrigger>
             <SelectContent>
               {users.map(user => (
                 <SelectItem key={user.id} value={user.id}>
-                  {user.name}
+                  {user.name} (@{user.username})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -48,11 +49,17 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      {selectedUser && (
+      {sessionsLoading && (
+        <div className="flex h-64 w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )}
+
+      {!sessionsLoading && selectedUser && (
         <MeditationChart 
           sessions={selectedUserSessions || []} 
           title={`${selectedUser.name}'s Progress`}
-          description={sessionsLoading ? "Loading sessions..." : `Meditation data for ${selectedUser.email}.`}
+          description={`Meditation data for ${selectedUser.email}.`}
         />
       )}
     </div>
