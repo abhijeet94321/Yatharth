@@ -94,12 +94,12 @@ export function MeditationChart({
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-           <Tabs value={range} onValueChange={handleRangeChange}>
-            <TabsList>
-              <TabsTrigger value="15">15 Days</TabsTrigger>
-              <TabsTrigger value="30">1 Month</TabsTrigger>
-              <TabsTrigger value="60">2 Months</TabsTrigger>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+           <Tabs value={range} onValueChange={handleRangeChange} className="w-full sm:w-auto">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="15" className="flex-1 sm:flex-none">15 Days</TabsTrigger>
+              <TabsTrigger value="30" className="flex-1 sm:flex-none">1 Month</TabsTrigger>
+              <TabsTrigger value="60" className="flex-1 sm:flex-none">2 Months</TabsTrigger>
             </TabsList>
           </Tabs>
           <Popover>
@@ -108,7 +108,7 @@ export function MeditationChart({
                 id="date"
                 variant={"outline"}
                 className={cn(
-                  "w-[240px] justify-start text-left font-normal",
+                  "w-full justify-start text-left font-normal sm:w-[240px]",
                   !date && "text-muted-foreground"
                 )}
                 onClick={() => setRange('custom')}
