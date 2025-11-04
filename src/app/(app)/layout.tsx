@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Loader2 } from 'lucide-react';
+import { NotificationPermissionManager } from '@/components/NotificationPermissionManager';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -24,7 +25,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return <>
+    <NotificationPermissionManager />
+    {children}
+  </>;
 }
 
 export default function AuthenticatedLayout({

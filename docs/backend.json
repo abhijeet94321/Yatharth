@@ -19,6 +19,13 @@
           "type": "string",
           "description": "Date and time when the user registered.",
           "format": "date-time"
+        },
+        "fcmTokens": {
+          "type": "array",
+          "description": "An array of Firebase Cloud Messaging tokens for sending push notifications to the user's devices.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [

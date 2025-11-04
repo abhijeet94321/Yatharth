@@ -7,6 +7,7 @@ export type UserProfile = {
   email: string;
   avatar: string;
   role: 'user' | 'admin';
+  fcmTokens?: string[];
 };
 
 // Combine Firebase User with our app-specific profile
