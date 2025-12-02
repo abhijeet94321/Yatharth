@@ -56,6 +56,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
 
     try {
         const storage = getStorage();
+        const { v4: uuidv4 } = await import('uuid');
         const videoId = uuidv4();
         const storageRef = ref(storage, `global_recommended_videos/${videoId}`);
 
