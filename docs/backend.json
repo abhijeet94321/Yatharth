@@ -58,7 +58,7 @@
           "description": "Date and time when the meditation session ended.",
           "format": "date-time"
         },
-        "durationSeconds": {
+        "duration": {
           "type": "number",
           "description": "Duration of the meditation session in seconds."
         }
@@ -68,7 +68,7 @@
         "userId",
         "startTime",
         "endTime",
-        "durationSeconds"
+        "duration"
       ]
     },
     "DailyMeditationSummary": {
@@ -90,7 +90,7 @@
           "description": "The date for which the meditation time is summarized.",
           "format": "date-time"
         },
-        "totalMeditationTimeSeconds": {
+        "totalMeditationTime": {
           "type": "number",
           "description": "Total meditation time in seconds for the user on the given date."
         }
@@ -99,7 +99,7 @@
         "id",
         "userId",
         "date",
-        "totalMeditationTimeSeconds"
+        "totalMeditationTime"
       ]
     }
   },
