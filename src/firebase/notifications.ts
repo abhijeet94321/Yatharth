@@ -2,7 +2,7 @@
 
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { getFirestore, doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
-import { getFirebaseApp } from '@/firebase';
+import { getApp } from 'firebase/app';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
@@ -13,7 +13,7 @@ export async function requestNotificationPermission(userId: string) {
     return;
   }
 
-  const app = getFirebaseApp();
+  const app = getApp();
   const messaging = getMessaging(app);
   const firestore = getFirestore(app);
 
