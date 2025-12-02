@@ -26,6 +26,11 @@
           "items": {
             "type": "string"
           }
+        },
+        "recommendedVideoUrl": {
+          "type": "string",
+          "description": "URL of a recommended video for the user, pushed by an admin.",
+          "format": "uri"
         }
       },
       "required": [

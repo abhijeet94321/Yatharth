@@ -8,6 +8,7 @@ export type UserProfile = {
   avatar: string;
   role: 'user' | 'admin';
   fcmTokens?: string[];
+  recommendedVideoUrl?: string;
 };
 
 // Combine Firebase User with our app-specific profile
