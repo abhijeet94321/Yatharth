@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
-import { Loader2, Upload } from 'lucide-react';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import { Loader2, Upload, Send } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,8 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -38,35 +40,33 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
   const { data: selectedUserSessions, isLoading: sessionsLoading } = useCollection<MeditationSession>(selectedUserSessionsQuery);
 
   const selectedUser = users.find(u => u.id === selectedUserId);
-
+  
   const handleVideoUpload = async () => {
-    if (!videoFile || !selectedUserId) {
+    if (!videoFile) {
         toast({
             title: 'Upload Failed',
-            description: 'Please select a user and a video file.',
+            description: 'Please select a video file.',
             variant: 'destructive'
         });
         return;
     }
 
     setIsUploading(true);
+    setUploadedVideoUrl(null);
 
     try {
         const storage = getStorage();
         const videoId = uuidv4();
-        const storageRef = ref(storage, `recommended_videos/${selectedUserId}/${videoId}`);
+        const storageRef = ref(storage, `global_recommended_videos/${videoId}`);
 
         await uploadBytes(storageRef, videoFile);
         const downloadURL = await getDownloadURL(storageRef);
-
-        const userDocRef = doc(firestore, 'users', selectedUserId);
-        await updateDoc(userDocRef, {
-            recommendedVideoUrl: downloadURL
-        });
+        
+        setUploadedVideoUrl(downloadURL);
 
         toast({
             title: 'Upload Successful',
-            description: `Video has been assigned to ${selectedUser?.name}.`,
+            description: `Video is now ready to be pushed to all users.`,
         });
         setVideoFile(null);
 
@@ -82,58 +82,110 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
     }
   };
 
+  const handlePushToAll = async () => {
+    if (!uploadedVideoUrl) {
+      toast({
+        title: 'Push Failed',
+        description: 'No video has been uploaded to push.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsPushing(true);
+
+    try {
+      const batch = writeBatch(firestore);
+      users.forEach(user => {
+        const userDocRef = doc(firestore, 'users', user.id);
+        batch.update(userDocRef, { recommendedVideoUrl: uploadedVideoUrl });
+      });
+      await batch.commit();
+
+      toast({
+        title: 'Push Successful!',
+        description: 'The video has been assigned to all users.',
+      });
+      setUploadedVideoUrl(null); // Clear after successful push
+
+    } catch (error) {
+      console.error('Error pushing video to all users:', error);
+      toast({
+        title: 'Push Error',
+        description: 'There was a problem pushing the video to users.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
-          <CardDescription>Select a user to view their progress or assign a recommended video.</CardDescription>
+          <CardTitle>Global Recommended Video</CardTitle>
+          <CardDescription>Upload a video once and push it to all users' dashboards.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {otherUsers.length > 0 ? (
-            <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
-              <SelectTrigger className="w-full md:w-[280px]">
-                <SelectValue placeholder="Select a user" />
-              </SelectTrigger>
-              <SelectContent>
-                {otherUsers.map(user => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name} (@{user.username})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-             <p className="text-sm text-muted-foreground">No other users found.</p>
-          )}
-
-          {selectedUserId && (
-             <div className="space-y-2 rounded-md border p-4">
-                 <h4 className="font-medium">Assign Recommended Video</h4>
-                <div className="flex items-center gap-4">
-                    <Input 
-                        type="file" 
-                        accept="video/*"
-                        onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)}
-                        className="flex-1"
-                        disabled={isUploading}
-                    />
-                    <Button onClick={handleVideoUpload} disabled={!videoFile || isUploading}>
-                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                        {isUploading ? 'Uploading...' : 'Upload Video'}
-                    </Button>
-                </div>
-                {selectedUser?.recommendedVideoUrl && (
-                    <p className="text-xs text-muted-foreground">
-                        Current video: <a href={selectedUser.recommendedVideoUrl} target="_blank" rel="noopener noreferrer" className="underline">View</a>
-                    </p>
-                )}
+           <div className="space-y-2 rounded-md border p-4">
+              <h4 className="font-medium">Step 1: Upload Video</h4>
+              <div className="flex items-center gap-4">
+                  <Input 
+                      type="file" 
+                      accept="video/*"
+                      onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)}
+                      className="flex-1"
+                      disabled={isUploading}
+                  />
+                  <Button onClick={handleVideoUpload} disabled={!videoFile || isUploading}>
+                      {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      {isUploading ? 'Uploading...' : 'Upload Video'}
+                  </Button>
+              </div>
+           </div>
+           {uploadedVideoUrl && (
+             <div className="space-y-3 rounded-md border p-4">
+                <h4 className="font-medium">Step 2: Push to Users</h4>
+                <p className="text-sm text-muted-foreground">The following video is uploaded and ready to be sent:</p>
+                <a href={uploadedVideoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">
+                  {uploadedVideoUrl}
+                </a>
+                <Button onClick={handlePushToAll} disabled={isPushing} className="w-full sm:w-auto">
+                    {isPushing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    {isPushing ? 'Pushing...' : 'Push to All Users'}
+                </Button>
              </div>
-          )}
+           )}
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+            <CardTitle>View User Progress</CardTitle>
+            <CardDescription>Select a user to view their individual meditation chart.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {otherUsers.length > 0 ? (
+                <Select onValueChange={setSelectedUserId} value={selectedUserId || ''}>
+                <SelectTrigger className="w-full md:w-[280px]">
+                    <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                    {otherUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                        {user.name} (@{user.username})
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            ) : (
+                <p className="text-sm text-muted-foreground">No other users found.</p>
+            )}
+        </CardContent>
+      </Card>
+
       {selectedUserId && sessionsLoading && (
         <div className="flex h-64 w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
