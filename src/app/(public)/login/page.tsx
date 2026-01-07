@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/componentsui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Logo } from '@/components/logo';
 import { useAuth } from '@/firebase';
@@ -19,16 +19,13 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  username: z.string().min(1, { message: 'Please enter your username.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(1, { message: 'Please enter your password.' }),
 });
 
 const resetSchema = z.object({
-  resetUsername: z.string().min(1, { message: 'Please enter your username to reset the password.' }),
+  resetEmail: z.string().email({ message: 'Please enter your email to reset the password.' }),
 });
-
-// Simple function to create an email from a username
-const formatEmailForAuth = (username: string) => `${username}@yatharth2025.app`;
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -43,7 +40,7 @@ export default function LoginPage() {
   const loginForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -51,15 +48,14 @@ export default function LoginPage() {
   const resetForm = useForm<z.infer<typeof resetSchema>>({
     resolver: zodResolver(resetSchema),
     defaultValues: {
-      resetUsername: '',
+      resetEmail: '',
     }
   });
 
   async function onLoginSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const email = formatEmailForAuth(values.username);
-      await signInWithEmailAndPassword(auth, email, values.password);
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
@@ -88,11 +84,10 @@ export default function LoginPage() {
   async function onResetSubmit(values: z.infer<typeof resetSchema>) {
     setIsResetting(true);
     try {
-      const email = formatEmailForAuth(values.resetUsername);
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, values.resetEmail);
       toast({
         title: 'Password Reset Email Sent',
-        description: `If an account exists for ${values.resetUsername}, an email has been sent with reset instructions.`,
+        description: `If an account exists for ${values.resetEmail}, an email has been sent with reset instructions.`,
       });
       setResetDialogOpen(false);
       resetForm.reset();
@@ -115,19 +110,19 @@ export default function LoginPage() {
         <CardHeader className="items-center text-center">
           <Logo />
           <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
-          <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
+          <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...loginForm}>
             <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
               <FormField
                 control={loginForm.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="username123" {...field} />
+                      <Input type="email" placeholder="name@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -169,19 +164,19 @@ export default function LoginPage() {
                 <DialogHeader>
                     <DialogTitle>Forgot Password</DialogTitle>
                     <DialogDescription>
-                        Enter your username below. If an account is associated with it, we will send a password reset link to the registered email.
+                        Enter your email below. If an account is associated with it, we will send a password reset link.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...resetForm}>
                     <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4 pt-4">
                          <FormField
                             control={resetForm.control}
-                            name="resetUsername"
+                            name="resetEmail"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Username</FormLabel>
+                                <FormLabel>Email</FormLabel>
                                 <FormControl>
-                                <Input placeholder="username123" {...field} />
+                                <Input type="email" placeholder="name@example.com" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

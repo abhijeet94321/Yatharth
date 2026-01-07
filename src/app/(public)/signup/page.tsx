@@ -20,11 +20,11 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const formSchema = z.object({
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
   username: z.string().min(3, { message: 'Username must be at least 3 characters.' }).regex(/^[a-zA-Z0-9]+$/, 'Username can only contain letters and numbers.'),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
-const formatEmailForAuth = (username: string) => `${username}@yatharth2025.app`;
 
 export default function SignupPage() {
   const auth = useAuth();
@@ -38,6 +38,7 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      email: '',
       username: '',
       password: '',
     },
@@ -46,17 +47,16 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const email = formatEmailForAuth(values.username);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, values.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
       const userProfile = {
         id: user.uid,
         name: values.username, // Using username as name
         username: values.username,
-        email: email, // We store the constructed email
+        email: values.email,
         avatar: `https://picsum.photos/seed/${user.uid}/100/100`,
-        role: values.username === 'admin' ? 'admin' : 'user', // Assign admin role if username is 'admin'
+        role: values.username.toLowerCase() === 'admin' ? 'admin' : 'user', // Assign admin role if username is 'admin'
         createdAt: serverTimestamp(),
       };
 
@@ -68,7 +68,7 @@ export default function SignupPage() {
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
-        setErrorDialogMessage('This username is already taken. Would you like to sign in instead?');
+        setErrorDialogMessage('This email is already associated with an account. Would you like to sign in instead?');
         setErrorDialogOpen(true);
       } else {
         toast({
@@ -93,6 +93,19 @@ export default function SignupPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+               <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="name@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
                <FormField
                 control={form.control}
                 name="username"
@@ -137,7 +150,7 @@ export default function SignupPage() {
       <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Username Taken</AlertDialogTitle>
+            <AlertDialogTitle>Account Exists</AlertDialogTitle>
             <AlertDialogDescription>
               {errorDialogMessage}
             </AlertDialogDescription>
