@@ -11,15 +11,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Logo } from '@/components/logo';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   username: z.string().min(1, { message: 'Please enter your username.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+});
+
+const resetSchema = z.object({
+  resetUsername: z.string().min(1, { message: 'Please enter your username to reset the password.' }),
 });
 
 // Simple function to create an email from a username
@@ -30,10 +35,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorDialogMessage, setErrorDialogMessage] = useState('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const loginForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       username: '',
@@ -41,7 +48,14 @@ export default function LoginPage() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const resetForm = useForm<z.infer<typeof resetSchema>>({
+    resolver: zodResolver(resetSchema),
+    defaultValues: {
+      resetUsername: '',
+    }
+  });
+
+  async function onLoginSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
       const email = formatEmailForAuth(values.username);
@@ -71,6 +85,30 @@ export default function LoginPage() {
     }
   }
 
+  async function onResetSubmit(values: z.infer<typeof resetSchema>) {
+    setIsResetting(true);
+    try {
+      const email = formatEmailForAuth(values.resetUsername);
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: 'Password Reset Email Sent',
+        description: `If an account exists for ${values.resetUsername}, an email has been sent with reset instructions.`,
+      });
+      setResetDialogOpen(false);
+      resetForm.reset();
+    } catch (error: any) {
+      console.error("Password Reset Error:", error);
+       toast({
+        title: 'Error Sending Reset Email',
+        description: 'There was a problem sending the password reset email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+
   return (
     <>
       <Card className="w-full max-w-sm">
@@ -80,10 +118,10 @@ export default function LoginPage() {
           <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <Form {...loginForm}>
+            <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
               <FormField
-                control={form.control}
+                control={loginForm.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
@@ -96,7 +134,7 @@ export default function LoginPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={loginForm.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
@@ -121,6 +159,43 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+           <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="link" className="p-0 h-auto text-sm font-medium text-primary">
+                    Forgot Password?
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Forgot Password</DialogTitle>
+                    <DialogDescription>
+                        Enter your username below. If an account is associated with it, we will send a password reset link to the registered email.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...resetForm}>
+                    <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4 pt-4">
+                         <FormField
+                            control={resetForm.control}
+                            name="resetUsername"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Username</FormLabel>
+                                <FormControl>
+                                <Input placeholder="username123" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <DialogFooter>
+                            <Button type="submit" disabled={isResetting}>
+                                {isResetting ? 'Sending...' : 'Send Reset Email'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+           </Dialog>
         </CardFooter>
       </Card>
       <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
