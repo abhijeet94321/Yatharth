@@ -2,85 +2,53 @@
  * @fileOverview Firestore Security Rules for the Yatharth 2025 application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user can only access their own data.
+ * This ruleset enforces a strict user-ownership model. Each user can only access their own data, with the exception of admins who have broader read access.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
- * - /users/{userId}/meditationSessions/{sessionId}: Stores meditation sessions, accessible only by the owning user.
- * - /users/{userId}/dailyMeditationSummaries/{summaryId}: Stores daily summaries, accessible only by the owning user.
+ * - /users/{userId}: Stores user profiles.
+ * - /users/{userId}/meditationSessions/{sessionId}: Stores meditation sessions.
+ * - /users/{userId}/dailyMeditationSummaries/{summaryId}: Stores daily summaries.
  *
  * Key Security Decisions:
- * - Users cannot list all user profiles, as this is a potential privacy concern.
+ * - Normal users cannot list all user profiles. Only admins can.
  * - All write operations require authentication and ownership validation.
- *
- * Authorization Denormalization:
- * - The security rules leverage the path-based ownership structure to authorize requests, avoiding the need for `get()` calls to other documents.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects the `/users` collection. Users can only read/write their own profile. Listing all users is disallowed.
+     * @description Protects the `/users` collection. Admins can list all users. Regular users can only read/write their own profile.
      * @path /users/{userId}
-     * @allow (create) User with UID 'user123' can create their own profile document at /users/user123.
-     * @deny (create) User with UID 'user456' cannot create a profile document at /users/user123.
-     * @deny (update) User with UID 'user456' cannot update the profile document at /users/user123.
-     * @principle Enforces document ownership for all operations in the /users collection.
      */
     match /users/{userId} {
-      // isOwner lets authenticated user access only their "own" user record.
-      allow get: if isOwner(userId);
-      //  Listing all users is disallowed for privacy reasons.
-      allow list: if false;
-
-      //  New user records can only be created by the corresponding authenticated user.
+      allow get: if isOwner(userId) || hasAdminRole();
+      allow list: if hasAdminRole();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      // Only the owner can update an existing user record.
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      //  Only the owner can delete an existing user record.
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Protects the /users/{userId}/meditationSessions/{sessionId} collection. Users can only read/write their own meditation sessions.
+     * @description Protects the /users/{userId}/meditationSessions/{sessionId} subcollection.
      * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (create) User with UID 'user123' can create a meditation session under /users/user123/meditationSessions/session1.
-     * @allow (list) User with UID 'user123' can list their own meditation sessions under /users/user123/meditationSessions.
-     * @deny (create) User with UID 'user456' cannot create a meditation session under /users/user123/meditationSessions/session1.
-     * @deny (update) User with UID 'user456' cannot update the meditation session under /users/user123/meditationSessions/session1.
-     * @principle Enforces document ownership for all operations within the /meditationSessions subcollection.
      */
     match /users/{userId}/meditationSessions/{sessionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
 
     /**
-     * @description Protects the /users/{userId}/dailyMeditationSummaries/{summaryId} collection. Users can only read/write their own daily meditation summaries.
+     * @description Protects the /users/{userId}/dailyMeditationSummaries/{summaryId} subcollection.
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (create) User with UID 'user123' can create a daily summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @allow (list) User with UID 'user123' can list their own daily summaries under /users/user123/dailyMeditationSummaries.
-     * @deny (create) User with UID 'user456' cannot create a daily summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @deny (update) User with UID 'user456' cannot update the daily summary under /users/user123/dailyMeditationSummaries/summary1.
-     * @principle Enforces document ownership for all operations within the /dailyMeditationSummaries subcollection.
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
 
     // --- Helper functions ---
 
     /**
      * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -88,20 +56,16 @@ service cloud.firestore {
 
     /**
      * @description Checks if the authenticated user ID matches the provided user ID.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user is the owner of the existing document.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner of the existing document, false otherwise.
+     * @description Checks if the authenticated user has the 'admin' role in their user profile.
      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    function hasAdminRole() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }

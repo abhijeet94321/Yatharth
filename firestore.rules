@@ -1,112 +1,40 @@
 /**
  * @file Firebase Security Rules for Yatharth 2025 application.
  *
- * @core_philosophy This ruleset enforces a strict user-ownership model, where users can only access their own data.
- * @data_structure All data is nested under /users/{userId}, ensuring clear ownership.  Meditation sessions and daily summaries are stored as subcollections under each user.
- * @key_security_decisions User listing is disallowed for privacy. Data required for authorization is denormalized onto documents to avoid costly `get()` calls.  Default security posture is strict, requiring explicit authorization for all operations.
+ * @core_philosophy This ruleset enforces a strict user-ownership model, where users can only access their own data, with admins having broader read access.
+ * @data_structure All user data is nested under /users/{userId}.
+ * @key_security_decisions Admin users can list all users for administrative purposes.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to the /users collection, specifically to prevent listing all users.
-     * @path /users
-     * @allow (get) A user can attempt to read a non-existent user profile, which will result in a "Not Found" error (this is normal behavior).
-     * @deny (list) No user can list all user profiles.
-     * @allow (create, update, delete) All write requests are denied.
-     * @principle Prevents unauthorized listing of user data for privacy.
-     */
-    match /users {
-      // Listing all users is not permitted.
-      allow list: if false;
-
-      // Getting a specific user document is handled in the /users/{userId} match.
-      allow get: if false; 
-
-      // No write operations are allowed directly on the /users collection.
-      allow create, update, delete: if false;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    /**
-     * @description Controls access to individual user profiles.
-     * @path /users/{userId}
-     * @allow (get) A user can read their own profile.
-     * @allow (create) A user can create their own profile if the UID matches the {userId}.
-     * @allow (update, delete) A user can update or delete their own profile.
-     * @deny (get) A user cannot read another user's profile.
-     * @deny (create) A user cannot create a profile with a {userId} that does not match their UID.
-     * @deny (update, delete) A user cannot update or delete another user's profile.
-     * @principle Enforces document ownership for reads and writes, ensuring users can only manage their own data.
-     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function hasAdminRole() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get: if isOwner(userId) || hasAdminRole();
+      allow list: if hasAdminRole();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId);
     }
 
-    /**
-     * @description Controls access to meditation sessions for a specific user.
-     * @path /users/{userId}/meditationSessions/{sessionId}
-     * @allow (get, list) A user can read and list their own meditation sessions.
-     * @allow (create) A user can create a meditation session under their own user ID.
-     * @allow (update, delete) A user can update or delete their own meditation sessions.
-     * @deny (get, list) A user cannot read or list another user's meditation sessions.
-     * @deny (create) A user cannot create a meditation session under another user's ID.
-     * @deny (update, delete) A user cannot update or delete another user's meditation sessions.
-     * @principle Enforces document ownership, ensuring users can only manage their own meditation session data.
-     */
     match /users/{userId}/meditationSessions/{sessionId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
 
-    /**
-     * @description Controls access to daily meditation summaries for a specific user.
-     * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
-     * @allow (get, list) A user can read and list their own daily meditation summaries.
-     * @allow (create) A user can create a daily meditation summary under their own user ID.
-     * @allow (update, delete) A user can update or delete their own daily meditation summaries.
-     * @deny (get, list) A user cannot read or list another user's daily meditation summaries.
-     * @deny (create) A user cannot create a daily meditation summary under another user's ID.
-     * @deny (update, delete) A user cannot update or delete another user's meditation summaries.
-     * @principle Enforces document ownership, ensuring users can only manage their own daily meditation summary data.
-     */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
   }
 }
