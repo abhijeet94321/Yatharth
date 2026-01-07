@@ -34,7 +34,8 @@ service cloud.firestore {
      * @path /users/{userId}/meditationSessions/{sessionId}
      */
     match /users/{userId}/meditationSessions/{sessionId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || hasAdminRole();
+      allow write: if isOwner(userId);
     }
 
     /**
@@ -42,7 +43,8 @@ service cloud.firestore {
      * @path /users/{userId}/dailyMeditationSummaries/{summaryId}
      */
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || hasAdminRole();
+      allow write: if isOwner(userId);
     }
 
     // --- Helper functions ---

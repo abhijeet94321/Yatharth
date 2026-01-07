@@ -30,11 +30,13 @@ service cloud.firestore {
     }
 
     match /users/{userId}/meditationSessions/{sessionId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || hasAdminRole();
+      allow write: if isOwner(userId);
     }
 
     match /users/{userId}/dailyMeditationSummaries/{summaryId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || hasAdminRole();
+      allow write: if isOwner(userId);
     }
   }
 }
