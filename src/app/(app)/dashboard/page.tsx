@@ -9,6 +9,7 @@ import type { MeditationSession, UserProfile } from '@/lib/types';
 import { TodaysSessions } from '@/components/dashboard/todays-sessions';
 import { RecommendedVideo } from '@/components/dashboard/recommended-video';
 import { Loader2 } from 'lucide-react';
+import { UpdateEmailDialog } from '@/components/dashboard/update-email-dialog';
 
 function DashboardContent() {
     const { user } = useUser();
@@ -35,9 +36,14 @@ function DashboardContent() {
             </div>
         );
     }
+    
+    // Check if the user needs to update their email
+    const needsEmailUpdate = user.email?.endsWith('@yatharth2025.app');
+
 
     return (
         <div className="space-y-6">
+            {needsEmailUpdate && <UpdateEmailDialog user={user} />}
             {userProfile?.recommendedVideoUrl && (
                 <RecommendedVideo videoUrl={userProfile.recommendedVideoUrl} />
             )}

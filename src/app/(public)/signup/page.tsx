@@ -61,7 +61,6 @@ export default function SignupPage() {
       };
 
       const userDocRef = doc(firestore, 'users', user.uid);
-      // Use non-blocking write as intended by the app's architecture
       setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
 
       router.push('/dashboard');
