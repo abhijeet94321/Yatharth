@@ -135,6 +135,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Mobile Number</TableHead>
                 <TableHead>Age</TableHead>
                 <TableHead>Profession</TableHead>
               </TableRow>
@@ -144,6 +145,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.mobileNumber ?? 'N/A'}</TableCell>
                   <TableCell>{user.age ?? 'N/A'}</TableCell>
                   <TableCell>{user.profession ?? 'N/A'}</TableCell>
                 </TableRow>

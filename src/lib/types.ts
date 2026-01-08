@@ -12,6 +12,7 @@ export type UserProfile = {
   dob?: string;
   profession?: string;
   age?: number;
+  mobileNumber?: string;
 };
 
 // Combine Firebase User with our app-specific profile

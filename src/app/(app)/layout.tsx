@@ -30,7 +30,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     if (!isUserLoading && !isProfileLoading && user && userProfile) {
-        const isProfileComplete = userProfile.dob && userProfile.profession;
+        const isProfileComplete = userProfile.dob && userProfile.profession && userProfile.mobileNumber;
         const isOnCompleteProfilePage = pathname === '/complete-profile';
 
         if (!isProfileComplete && !isOnCompleteProfilePage) {
@@ -51,7 +51,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // If profile is incomplete, let the effect handle redirection, don't render children.
   // The complete-profile page will be rendered through its own route.
-  if (!(userProfile.dob && userProfile.profession) && pathname !== '/complete-profile') {
+  if (!(userProfile.dob && userProfile.profession && userProfile.mobileNumber) && pathname !== '/complete-profile') {
     return (
        <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

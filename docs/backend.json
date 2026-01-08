@@ -44,6 +44,10 @@
         "age": {
           "type": "number",
           "description": "User's age, calculated from dob."
+        },
+        "mobileNumber": {
+          "type": "string",
+          "description": "User's mobile phone number."
         }
       },
       "required": [

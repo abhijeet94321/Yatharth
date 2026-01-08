@@ -26,6 +26,7 @@ const formSchema = z.object({
     required_error: "Your date of birth is required.",
   }),
   profession: z.string().min(2, { message: 'Please enter your profession.' }),
+  mobileNumber: z.string().min(10, { message: 'Please enter a valid mobile number.' }),
 });
 
 export default function CompleteProfilePage() {
@@ -38,6 +39,10 @@ export default function CompleteProfilePage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      profession: '',
+      mobileNumber: '',
+    },
   });
 
   function calculateAge(dob: Date): number {
@@ -57,6 +62,7 @@ export default function CompleteProfilePage() {
             dob: values.dob.toISOString(),
             profession: values.profession,
             age: calculateAge(values.dob),
+            mobileNumber: values.mobileNumber,
         };
         
         updateDocumentNonBlocking(userDocRef, userProfileUpdate);
@@ -158,6 +164,19 @@ export default function CompleteProfilePage() {
                   <FormLabel>Profession</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Software Engineer, Doctor" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="mobileNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mobile Number</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="e.g., +1 123 456 7890" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
