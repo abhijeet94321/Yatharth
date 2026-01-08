@@ -5,12 +5,11 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import type { UserProfile } from '@/lib/types';
@@ -22,7 +21,12 @@ const formSchema = z.object({
   mobileNumber: z.string().min(10, { message: 'Please enter a valid mobile number.' }),
 });
 
-function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
+interface EditProfileFormProps {
+  userProfile: UserProfile;
+  onSave: () => void;
+}
+
+export function EditProfileForm({ userProfile, onSave }: EditProfileFormProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +57,7 @@ function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
         title: 'Profile Updated',
         description: "Your profile has been successfully updated.",
       });
+      onSave(); // Close the dialog on successful save
 
     } catch (error: any) {
       console.error("Update error:", error);
@@ -68,7 +73,7 @@ function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -108,7 +113,7 @@ function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
             </FormItem>
           )}
         />
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-4">
             <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLoading ? 'Saving...' : 'Save Changes'}
@@ -117,38 +122,4 @@ function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
       </form>
     </Form>
   );
-}
-
-
-export default function ProfilePage() {
-    const { user } = useUser();
-    const firestore = useFirestore();
-
-    const userProfileRef = useMemoFirebase(() => {
-        if (!user) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user]);
-
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
-
-    return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Personal Information</CardTitle>
-                    <CardDescription>Update your name, profession, and contact details.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {isProfileLoading || !userProfile ? (
-                        <div className="flex h-48 w-full items-center justify-center">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
-                    ) : (
-                        <UserProfileForm userProfile={userProfile} />
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-    );
 }

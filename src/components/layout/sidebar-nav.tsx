@@ -9,7 +9,7 @@ import {
   SidebarContent,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, LogOut, ShieldCheck, User } from 'lucide-react';
+import { LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
 import { useUser, useAuth, useDoc, useMemoFirebase } from '@/firebase';
 import { Logo } from '../logo';
 import { doc, getFirestore } from 'firebase/firestore';
@@ -36,12 +36,6 @@ export function SidebarNav() {
       label: 'Dashboard',
       icon: LayoutDashboard,
       active: pathname === '/dashboard',
-    },
-    {
-        href: '/profile',
-        label: 'Profile',
-        icon: User,
-        active: pathname === '/profile'
     },
     {
       href: '/admin',
