@@ -6,14 +6,12 @@ import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { Loader2, Upload, Send, Pencil } from 'lucide-react';
+import { Loader2, Upload, Send } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { EditUserProfileForm } from './edit-user-profile-form';
 
 interface AdminDashboardProps {
   users: UserProfile[];
@@ -26,7 +24,6 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -205,23 +202,6 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
                         <CardTitle>User Details</CardTitle>
                         <CardDescription>Personal and contact information for {selectedUser.name}.</CardDescription>
                     </div>
-                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                      <DialogTrigger asChild>
-                         <Button variant="outline" size="sm">
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit Profile
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit {selectedUser.name}'s Profile</DialogTitle>
-                          <DialogDescription>
-                            Make changes to the user's profile. Click save when you're done.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <EditUserProfileForm userProfile={selectedUser} onSave={() => setIsEditDialogOpen(false)}/>
-                      </DialogContent>
-                    </Dialog>
                 </CardHeader>
                 <CardContent>
                     <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -267,5 +247,3 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
     </div>
   );
 }
-
-    

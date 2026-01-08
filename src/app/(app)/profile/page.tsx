@@ -4,20 +4,17 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { UserProfile } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import type { UserProfile } from '@/lib/types';
 
-interface EditUserProfileFormProps {
-  userProfile: UserProfile;
-  onSave: () => void;
-}
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -25,7 +22,7 @@ const formSchema = z.object({
   mobileNumber: z.string().min(10, { message: 'Please enter a valid mobile number.' }),
 });
 
-export function EditUserProfileForm({ userProfile, onSave }: EditUserProfileFormProps) {
+function UserProfileForm({ userProfile }: { userProfile: UserProfile }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -54,16 +51,14 @@ export function EditUserProfileForm({ userProfile, onSave }: EditUserProfileForm
 
       toast({
         title: 'Profile Updated',
-        description: `${userProfile.name}'s profile has been successfully updated.`,
+        description: "Your profile has been successfully updated.",
       });
-      
-      onSave(); // Close the dialog after saving
 
     } catch (error: any) {
       console.error("Update error:", error);
       toast({
         title: 'Update Failed',
-        description: error.message || 'Could not update the profile.',
+        description: error.message || 'Could not update your profile.',
         variant: 'destructive',
       });
     } finally {
@@ -124,4 +119,36 @@ export function EditUserProfileForm({ userProfile, onSave }: EditUserProfileForm
   );
 }
 
-    
+
+export default function ProfilePage() {
+    const { user } = useUser();
+    const firestore = useFirestore();
+
+    const userProfileRef = useMemoFirebase(() => {
+        if (!user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+    return (
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Personal Information</CardTitle>
+                    <CardDescription>Update your name, profession, and contact details.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {isProfileLoading || !userProfile ? (
+                        <div className="flex h-48 w-full items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    ) : (
+                        <UserProfileForm userProfile={userProfile} />
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}

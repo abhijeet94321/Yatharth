@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   SidebarHeader,
@@ -8,7 +9,7 @@ import {
   SidebarContent,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, LogOut, ShieldCheck, User } from 'lucide-react';
 import { useUser, useAuth, useDoc, useMemoFirebase } from '@/firebase';
 import { Logo } from '../logo';
 import { doc, getFirestore } from 'firebase/firestore';
@@ -37,6 +38,12 @@ export function SidebarNav() {
       active: pathname === '/dashboard',
     },
     {
+        href: '/profile',
+        label: 'Profile',
+        icon: User,
+        active: pathname === '/profile'
+    },
+    {
       href: '/admin',
       label: 'Admin',
       icon: ShieldCheck,
@@ -60,10 +67,10 @@ export function SidebarNav() {
                   isActive={item.active}
                   tooltip={item.label}
                 >
-                  <a href={item.href}>
+                  <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )
