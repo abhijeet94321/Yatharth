@@ -34,7 +34,7 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [dateInput, setDateInput] = useState('');
+  const [dateInput, setDateInput] = useState<string>('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
