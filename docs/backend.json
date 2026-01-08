@@ -31,6 +31,19 @@
           "type": "string",
           "description": "URL of a recommended video for the user, pushed by an admin.",
           "format": "uri"
+        },
+        "dob": {
+          "type": "string",
+          "description": "User's date of birth.",
+          "format": "date"
+        },
+        "profession": {
+          "type": "string",
+          "description": "User's profession."
+        },
+        "age": {
+          "type": "number",
+          "description": "User's age, calculated from dob."
         }
       },
       "required": [

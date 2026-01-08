@@ -12,6 +12,7 @@ import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AdminDashboardProps {
   users: UserProfile[];
@@ -123,6 +124,35 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
 
   return (
     <div className="space-y-6">
+       <Card>
+        <CardHeader>
+          <CardTitle>User Information</CardTitle>
+          <CardDescription>Details of all registered users.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Age</TableHead>
+                <TableHead>Profession</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {otherUsers.map(user => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.age ?? 'N/A'}</TableCell>
+                  <TableCell>{user.profession ?? 'N/A'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle>Global Recommended Video</CardTitle>

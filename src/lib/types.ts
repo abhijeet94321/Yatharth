@@ -9,6 +9,9 @@ export type UserProfile = {
   role: 'user' | 'admin';
   fcmTokens?: string[];
   recommendedVideoUrl?: string;
+  dob?: string;
+  profession?: string;
+  age?: number;
 };
 
 // Combine Firebase User with our app-specific profile

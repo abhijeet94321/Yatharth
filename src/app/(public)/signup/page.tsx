@@ -63,7 +63,7 @@ export default function SignupPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
 
-      router.push('/dashboard');
+      router.push('/complete-profile');
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
