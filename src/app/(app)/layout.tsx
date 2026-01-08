@@ -8,7 +8,6 @@ import { Loader2 } from 'lucide-react';
 import { NotificationPermissionManager } from '@/components/NotificationPermissionManager';
 import type { UserProfile } from '@/lib/types';
 import { doc } from 'firebase/firestore';
-import { BirthdayGreeter } from '@/components/dashboard/birthday-greeter';
 
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -62,7 +61,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>
     { pathname !== '/complete-profile' && <NotificationPermissionManager /> }
-    { userProfile && userProfile.dob && <BirthdayGreeter userProfile={userProfile} /> }
     {children}
   </>;
 }
