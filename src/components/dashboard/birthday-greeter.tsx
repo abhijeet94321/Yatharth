@@ -5,6 +5,7 @@ import type { UserProfile } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Gift } from 'lucide-react';
+import { parseISO } from 'date-fns';
 
 interface BirthdayGreeterProps {
   userProfile: UserProfile;
@@ -17,14 +18,16 @@ export function BirthdayGreeter({ userProfile }: BirthdayGreeterProps) {
     if (!userProfile.dob) return;
 
     const today = new Date();
-    // DOB is stored as ISO string, so we need to parse it correctly
-    // The date part of the ISO string is YYYY-MM-DD, so we can split and parse
-    const dobParts = userProfile.dob.split('T')[0].split('-');
-    const birthDate = new Date(parseInt(dobParts[0]), parseInt(dobParts[1]) - 1, parseInt(dobParts[2]));
+    // Parse the ISO string to a Date object. `parseISO` handles timezones correctly.
+    const birthDate = parseISO(userProfile.dob);
 
-    const isBirthday =
-      today.getMonth() === birthDate.getMonth() &&
-      today.getDate() === birthDate.getDate();
+    // Get month and day in UTC to avoid timezone issues
+    const todayMonth = today.getUTCMonth();
+    const todayDate = today.getUTCDate();
+    const birthMonth = birthDate.getUTCMonth();
+    const birthDay = birthDate.getUTCDate();
+    
+    const isBirthday = todayMonth === birthMonth && todayDate === birthDay;
 
     if (isBirthday) {
       const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD
