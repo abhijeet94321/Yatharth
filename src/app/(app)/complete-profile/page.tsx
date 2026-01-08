@@ -89,18 +89,30 @@ export default function CompleteProfilePage() {
     if (date) {
         form.setValue('dob', date);
         setDateInput(format(date, 'yyyy-MM-dd'));
+        form.clearErrors('dob');
     }
   };
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setDateInput(value);
-    const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
-    if (!isNaN(parsedDate.getTime())) {
-      form.setValue('dob', parsedDate);
-    } else {
-      form.setError('dob', { type: 'manual', message: 'Invalid date format. Use YYYY-MM-DD.' });
+    
+    // Only attempt to parse and set value if the string is the correct length
+    if (value.length === 10) {
+        const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
+        // Check if the parsed date is a valid date number
+        if (!isNaN(parsedDate.getTime())) {
+            // Check if the formatted date matches the input to catch invalid dates like '2023-02-30'
+            if (format(parsedDate, 'yyyy-MM-dd') === value) {
+                 form.setValue('dob', parsedDate);
+                 form.clearErrors('dob');
+                 return;
+            }
+        }
     }
+    
+    // If any check fails, set an error
+    form.setError('dob', { type: 'manual', message: 'Invalid date format. Use YYYY-MM-DD.' });
   };
 
   return (
