@@ -12,7 +12,6 @@ import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AdminDashboardProps {
   users: UserProfile[];
@@ -40,7 +39,9 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
 
   const { data: selectedUserSessions, isLoading: sessionsLoading } = useCollection<MeditationSession>(selectedUserSessionsQuery);
 
-  const selectedUser = users.find(u => u.id === selectedUserId);
+  const selectedUser = useMemo(() => {
+    return users.find(u => u.id === selectedUserId)
+  }, [users, selectedUserId]);
   
   const handleVideoUpload = async () => {
     if (!videoFile) {
@@ -124,37 +125,6 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
 
   return (
     <div className="space-y-6">
-       <Card>
-        <CardHeader>
-          <CardTitle>User Information</CardTitle>
-          <CardDescription>Details of all registered users.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Mobile Number</TableHead>
-                <TableHead>Age</TableHead>
-                <TableHead>Profession</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {otherUsers.map(user => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.mobileNumber ?? 'N/A'}</TableCell>
-                  <TableCell>{user.age ?? 'N/A'}</TableCell>
-                  <TableCell>{user.profession ?? 'N/A'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      
       <Card>
         <CardHeader>
           <CardTitle>Global Recommended Video</CardTitle>
@@ -196,7 +166,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
       <Card>
         <CardHeader>
             <CardTitle>View User Progress</CardTitle>
-            <CardDescription>Select a user to view their individual meditation chart.</CardDescription>
+            <CardDescription>Select a user to view their meditation data and personal details.</CardDescription>
         </CardHeader>
         <CardContent>
             {otherUsers.length > 0 ? (
@@ -218,18 +188,51 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </CardContent>
       </Card>
 
-      {selectedUserId && sessionsLoading && (
+      {selectedUserId && (sessionsLoading || !selectedUser) && (
         <div className="flex h-64 w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       )}
 
-      {selectedUserId && !sessionsLoading && selectedUser && (
-        <MeditationChart 
-          sessions={selectedUserSessions || []} 
-          title={`${selectedUser.name}'s Progress`}
-          description={`Meditation data for ${selectedUser.email}.`}
-        />
+      {selectedUser && !sessionsLoading && (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>User Details</CardTitle>
+                    <CardDescription>Personal and contact information for {selectedUser.name}.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-muted-foreground">Name</dt>
+                            <dd className="mt-1 text-sm font-semibold">{selectedUser.name}</dd>
+                        </div>
+                         <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-muted-foreground">Email</dt>
+                            <dd className="mt-1 text-sm font-semibold">{selectedUser.email}</dd>
+                        </div>
+                        <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-muted-foreground">Mobile Number</dt>
+                            <dd className="mt-1 text-sm font-semibold">{selectedUser.mobileNumber || 'N/A'}</dd>
+                        </div>
+                        <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-muted-foreground">Age</dt>
+                            <dd className="mt-1 text-sm font-semibold">{selectedUser.age || 'N/A'}</dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                            <dt className="text-sm font-medium text-muted-foreground">Profession</dt>
+                            <dd className="mt-1 text-sm font-semibold">{selectedUser.profession || 'N/A'}</dd>
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
+
+            <MeditationChart 
+                sessions={selectedUserSessions || []} 
+                title={`${selectedUser.name}'s Progress`}
+                description={`Meditation data for ${selectedUser.email}.`}
+            />
+        </div>
       )}
 
       {!selectedUserId && !sessionsLoading &&(
