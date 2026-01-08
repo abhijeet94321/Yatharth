@@ -32,7 +32,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
   const firestore = useFirestore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [playAlarm] = useSound('/alarm.mp3');
+  const [playAlarm] = useSound('https://www.soundjay.com/buttons/sounds/button-21.mp3');
 
   useEffect(() => {
     const newDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
@@ -284,4 +284,3 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     </Card>
   );
 }
-
