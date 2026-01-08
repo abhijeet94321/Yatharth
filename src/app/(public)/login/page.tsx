@@ -67,8 +67,11 @@ export default function LoginPage() {
         setErrorDialogOpen(true);
       } else if (error.code === 'auth/user-disabled') {
         description = 'This account has been disabled. Please contact support for assistance.';
-        setErrorDialogMessage(description);
-        setErrorDialogOpen(true);
+        toast({
+            title: 'Login Failed',
+            description: description,
+            variant: 'destructive',
+         });
       } else {
          toast({
             title: 'Login Failed',
