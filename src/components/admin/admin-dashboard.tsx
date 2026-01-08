@@ -215,7 +215,15 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
                         </div>
                         <div className="sm:col-span-1">
                             <dt className="text-sm font-medium text-muted-foreground">Mobile Number</dt>
-                            <dd className="mt-1 text-sm font-semibold">{selectedUser.mobileNumber || 'N/A'}</dd>
+                            <dd className="mt-1 text-sm font-semibold">
+                                {selectedUser.mobileNumber ? (
+                                    <a href={`tel:${selectedUser.mobileNumber}`} className="text-primary hover:underline">
+                                        {selectedUser.mobileNumber}
+                                    </a>
+                                ) : (
+                                    'N/A'
+                                )}
+                            </dd>
                         </div>
                         <div className="sm:col-span-1">
                             <dt className="text-sm font-medium text-muted-foreground">Age</dt>
