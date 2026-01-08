@@ -6,12 +6,13 @@ import { MeditationChart } from '../dashboard/meditation-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { Loader2, Upload, Send } from 'lucide-react';
+import { Loader2, Upload, Send, Mail, Phone, Edit } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface AdminDashboardProps {
   users: UserProfile[];
@@ -211,14 +212,22 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
                         </div>
                          <div className="sm:col-span-1">
                             <dt className="text-sm font-medium text-muted-foreground">Email</dt>
-                            <dd className="mt-1 text-sm font-semibold">{selectedUser.email}</dd>
+                            <dd className="mt-1 text-sm font-semibold">
+                                 {selectedUser.email ? (
+                                    <a href={`mailto:${selectedUser.email}`} className="text-primary hover:underline flex items-center gap-1">
+                                        <Mail className="h-4 w-4"/> {selectedUser.email}
+                                    </a>
+                                ) : (
+                                    'N/A'
+                                )}
+                            </dd>
                         </div>
                         <div className="sm:col-span-1">
                             <dt className="text-sm font-medium text-muted-foreground">Mobile Number</dt>
                             <dd className="mt-1 text-sm font-semibold">
                                 {selectedUser.mobileNumber ? (
-                                    <a href={`tel:${selectedUser.mobileNumber}`} className="text-primary hover:underline">
-                                        {selectedUser.mobileNumber}
+                                    <a href={`tel:${selectedUser.mobileNumber}`} className="text-primary hover:underline flex items-center gap-1">
+                                        <Phone className="h-4 w-4" /> {selectedUser.mobileNumber}
                                     </a>
                                 ) : (
                                     'N/A'
