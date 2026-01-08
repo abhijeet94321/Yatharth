@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { format, differenceInYears } from 'date-fns';
+import { format, differenceInYears, parse } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +34,7 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [dateInput, setDateInput] = useState('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -78,6 +79,24 @@ export default function CompleteProfilePage() {
     }
   }
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+        form.setValue('dob', date);
+        setDateInput(format(date, 'yyyy-MM-dd'));
+    }
+  };
+
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDateInput(value);
+    const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
+    if (!isNaN(parsedDate.getTime())) {
+      form.setValue('dob', parsedDate);
+    } else {
+      form.setError('dob', { type: 'manual', message: 'Invalid date format. Use YYYY-MM-DD.' });
+    }
+  };
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="items-center text-center">
@@ -95,29 +114,31 @@ export default function CompleteProfilePage() {
                 <FormItem className="flex flex-col">
                   <FormLabel>Date of Birth</FormLabel>
                   <Popover>
-                    <PopoverTrigger asChild>
+                    <div className="relative">
                       <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
+                        <Input
+                          placeholder="YYYY-MM-DD"
+                          value={dateInput}
+                          onChange={handleDateInputChange}
+                          className="pr-10"
+                        />
                       </FormControl>
-                    </PopoverTrigger>
+                      <PopoverTrigger asChild>
+                         <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground"
+                            aria-label="Open calendar"
+                         >
+                            <CalendarIcon className="h-4 w-4" />
+                         </Button>
+                      </PopoverTrigger>
+                    </div>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={handleDateSelect}
                         disabled={(date) =>
                           date > new Date() || date < new Date("1900-01-01")
                         }
