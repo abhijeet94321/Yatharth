@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,12 +20,13 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
   const [minutes, setMinutes] = useState('15');
   const [seconds, setSeconds] = useState('');
 
-  const initialDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
-
-  const [timeLeft, setTimeLeft] = useState(initialDuration);
+  const [initialDuration, setInitialDuration] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [sessionCompleted, setSessionCompleted] = useState(false);
+
 
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -35,11 +36,64 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
 
   useEffect(() => {
     const newDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
+    setInitialDuration(newDuration);
     if (!isActive) {
       setTimeLeft(newDuration);
     }
   }, [hours, minutes, seconds, isActive]);
 
+  const handleSessionEnd = useCallback((duration: number, completed: boolean) => {
+    if (userId && duration > 0) {
+      const sessionsColRef = collection(firestore, 'users', userId, 'meditationSessions');
+      const endTime = new Date();
+      const sessionStartTime = new Date(endTime.getTime() - duration * 1000);
+
+      const sessionData = {
+        userId,
+        startTime: sessionStartTime.toISOString(),
+        endTime: endTime.toISOString(),
+        duration: duration,
+        createdAt: serverTimestamp(),
+      };
+      
+      addDocumentNonBlocking(sessionsColRef, sessionData);
+      
+      const formatDurationToast = (totalSeconds: number) => {
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = Math.floor(totalSeconds % 60);
+        
+        let parts = [];
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m}m`);
+        if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+        
+        return parts.join(' ');
+      };
+
+      if (completed) {
+        playAlarm();
+        toast({
+          title: 'Session Complete!',
+          description: `Great job! You completed a ${formatDurationToast(duration)} session.`,
+          className: 'bg-accent text-accent-foreground',
+        });
+      } else {
+         toast({
+            title: 'Session Saved!',
+            description: `You logged a session of ${formatDurationToast(duration)}.`,
+        });
+      }
+    }
+    
+    setIsActive(false);
+    setIsPaused(false);
+    setStartTime(null);
+    setSessionCompleted(false);
+    // Reset timer to initial duration after session ends
+    const newDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
+    setTimeLeft(newDuration);
+  }, [userId, firestore, playAlarm, toast, hours, minutes, seconds]);
 
   useEffect(() => {
     if (isActive && !isPaused) {
@@ -47,7 +101,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
         setTimeLeft((prevTime) => {
           if (prevTime <= 1) {
             clearInterval(intervalRef.current!);
-            handleSessionEnd(initialDuration, true);
+            setSessionCompleted(true);
             return 0;
           }
           return prevTime - 1;
@@ -58,6 +112,12 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     }
     return () => clearInterval(intervalRef.current!);
   }, [isActive, isPaused]);
+
+  useEffect(() => {
+    if (sessionCompleted) {
+      handleSessionEnd(initialDuration, true);
+    }
+  }, [sessionCompleted, initialDuration, handleSessionEnd]);
 
   const handleStart = () => {
     if (initialDuration <= 0) {
@@ -72,6 +132,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     setIsPaused(false);
     setStartTime(new Date());
     setTimeLeft(initialDuration);
+    setSessionCompleted(false);
   };
 
   const handlePause = () => {
@@ -87,47 +148,19 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
       setIsPaused(false);
       setTimeLeft(initialDuration);
       setStartTime(null);
+      setSessionCompleted(false);
   }
 
   const handleEndSession = () => {
     const endTime = new Date();
     if (startTime) {
       const elapsedSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+      // We call the callback version here directly and reset state
       handleSessionEnd(elapsedSeconds, false);
+    } else {
+       // If session ended without starting, just reset.
+       handleReset();
     }
-  };
-
-  const handleSessionEnd = (duration: number, completed: boolean) => {
-    if (userId && duration > 0) {
-      const sessionsColRef = collection(firestore, 'users', userId, 'meditationSessions');
-      const endTime = new Date();
-      const sessionStartTime = new Date(endTime.getTime() - duration * 1000);
-
-      const sessionData = {
-        userId,
-        startTime: sessionStartTime.toISOString(),
-        endTime: endTime.toISOString(),
-        duration: duration,
-        createdAt: serverTimestamp(),
-      };
-      
-      addDocumentNonBlocking(sessionsColRef, sessionData);
-
-      if (completed) {
-        playAlarm();
-        toast({
-          title: 'Session Complete!',
-          description: `Great job! You completed a ${formatDuration(duration)} session.`,
-          className: 'bg-accent text-accent-foreground',
-        });
-      } else {
-         toast({
-            title: 'Session Saved!',
-            description: `You logged a session of ${formatDuration(duration)}.`,
-        });
-      }
-    }
-    handleReset();
   };
 
 
@@ -137,20 +170,6 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     const s = Math.floor(time % 60).toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
   };
-  
-  const formatDuration = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = Math.floor(totalSeconds % 60);
-    
-    let parts = [];
-    if (h > 0) parts.push(`${h}h`);
-    if (m > 0) parts.push(`${m}m`);
-    if (s > 0 || parts.length === 0) parts.push(`${s}s`);
-    
-    return parts.join(' ');
-  };
-
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string, max: number) => {
     const num = parseInt(value, 10);
@@ -159,7 +178,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     }
   };
 
-  const progress = (timeLeft / initialDuration) * 100;
+  const progress = initialDuration > 0 ? (timeLeft / initialDuration) * 100 : 0;
 
   return (
     <Card className="flex flex-col">
@@ -265,3 +284,4 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     </Card>
   );
 }
+
