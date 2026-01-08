@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the Yatharth 2025 application.",
+      "description": "Represents a user of the Yatharth application.",
       "properties": {
         "id": {
           "type": "string",

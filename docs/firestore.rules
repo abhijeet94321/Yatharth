@@ -1,5 +1,5 @@
 /**
- * @fileOverview Firestore Security Rules for the Yatharth 2025 application.
+ * @fileOverview Firestore Security Rules for the Yatharth application.
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model. Each user can only access their own data, with the exception of admins who have broader read access.

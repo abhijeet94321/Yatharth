@@ -4,8 +4,12 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'Yatharth 2025',
+  title: 'Yatharth',
   description: 'A meditation tracking application.',
+  icons: {
+    icon: 'https://raw.githubusercontent.com/abhijeet94321/abhijeet/main/image.png',
+    apple: 'https://raw.githubusercontent.com/abhijeet94321/abhijeet/main/image.png',
+  }
 };
 
 export default function RootLayout({
