@@ -1,6 +1,6 @@
 'use client';
 import { Bar, BarChart, XAxis, YAxis, Tooltip } from 'recharts';
-import { format, parseISO, subDays, differenceInDays, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, subDays, eachDayOfInterval } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -29,6 +29,17 @@ interface MeditationChartProps {
   description?: string;
 }
 
+const formatDuration = (seconds: number) => {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+
 export function MeditationChart({
   sessions,
   title = "Your Progress",
@@ -41,14 +52,18 @@ export function MeditationChart({
   });
 
   const chartData = useMemo(() => {
-    const dataByDay: { [key: string]: number } = {};
+    const dataByDay: { [key: string]: { total: number, sessions: { endTime: string, duration: number }[] } } = {};
 
     sessions.forEach(session => {
       const day = format(parseISO(session.endTime), 'yyyy-MM-dd');
       if (!dataByDay[day]) {
-        dataByDay[day] = 0;
+        dataByDay[day] = { total: 0, sessions: [] };
       }
-      dataByDay[day] += session.duration;
+      dataByDay[day].total += session.duration;
+      dataByDay[day].sessions.push({
+        endTime: session.endTime,
+        duration: session.duration,
+      });
     });
 
     let startDate: Date;
@@ -63,10 +78,15 @@ export function MeditationChart({
     
     const interval = eachDayOfInterval({ start: startDate, end: endDate });
 
-    return interval.map(day => ({
-      date: format(day, 'MMM d'),
-      minutes: Math.round((dataByDay[format(day, 'yyyy-MM-dd')] || 0) / 60),
-    }));
+    return interval.map(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const dayData = dataByDay[dayKey];
+      return {
+        date: format(day, 'MMM d'),
+        minutes: Math.round((dayData?.total || 0) / 60),
+        sessions: dayData?.sessions || []
+      }
+    });
 
   }, [sessions, range, date]);
 
@@ -85,6 +105,41 @@ export function MeditationChart({
       label: "Minutes",
       color: "hsl(var(--primary))",
     },
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="rounded-lg border bg-background p-2 shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col space-y-1">
+              <span className="text-[0.70rem] uppercase text-muted-foreground">Date</span>
+              <span className="font-bold text-muted-foreground">{label}</span>
+            </div>
+            <div className="flex flex-col space-y-1">
+               <span className="text-[0.70rem] uppercase text-muted-foreground">Total Time</span>
+              <span className="font-bold">{data.minutes} min</span>
+            </div>
+          </div>
+          {data.sessions.length > 0 && (
+            <>
+                <div className="my-2 h-px w-full shrink-0 bg-border" />
+                <div className="space-y-1">
+                    {data.sessions.map((s: any, i: number) => (
+                         <div key={i} className="flex justify-between text-xs">
+                           <span>{formatDuration(s.duration)}</span>
+                           <span className="text-muted-foreground">{format(parseISO(s.endTime), 'p')}</span>
+                         </div>
+                    ))}
+                </div>
+            </>
+          )}
+        </div>
+      );
+    }
+  
+    return null;
   };
 
   return (
@@ -161,7 +216,7 @@ export function MeditationChart({
             />
              <Tooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="dot" />}
+              content={<CustomTooltip />}
             />
             <Bar
               dataKey="minutes"
