@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,11 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { LogIn, Calendar as CalendarIcon } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Play, Pause, Square, RotateCcw } from 'lucide-react';
+import useSound from 'use-sound';
 
 interface MeditationTimerProps {
   userId: string;
@@ -20,71 +17,127 @@ interface MeditationTimerProps {
 
 export function MeditationTimer({ userId }: MeditationTimerProps) {
   const [hours, setHours] = useState('');
-  const [minutes, setMinutes] = useState('');
+  const [minutes, setMinutes] = useState('15');
   const [seconds, setSeconds] = useState('');
-  const [date, setDate] = useState<Date | undefined>(new Date());
+
+  const initialDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
+
+  const [timeLeft, setTimeLeft] = useState(initialDuration);
+  const [isActive, setIsActive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+
   const { toast } = useToast();
   const firestore = useFirestore();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleLogSession = async () => {
-    const h = parseInt(hours, 10) || 0;
-    const m = parseInt(minutes, 10) || 0;
-    const s = parseInt(seconds, 10) || 0;
+  const [playAlarm] = useSound('/alarm.mp3');
 
-    const totalSeconds = (h * 3600) + (m * 60) + s;
+  useEffect(() => {
+    const newDuration = (parseInt(hours, 10) || 0) * 3600 + (parseInt(minutes, 10) || 0) * 60 + (parseInt(seconds, 10) || 0);
+    if (!isActive) {
+      setTimeLeft(newDuration);
+    }
+  }, [hours, minutes, seconds, isActive]);
 
-    if (totalSeconds <= 0) {
+
+  useEffect(() => {
+    if (isActive && !isPaused) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(intervalRef.current!);
+            handleSessionEnd(initialDuration, true);
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(intervalRef.current!);
+    }
+    return () => clearInterval(intervalRef.current!);
+  }, [isActive, isPaused]);
+
+  const handleStart = () => {
+    if (initialDuration <= 0) {
       toast({
-        title: 'Invalid Time',
-        description: 'Please enter a duration greater than zero.',
+        title: 'Invalid Duration',
+        description: 'Please set a duration greater than zero.',
         variant: 'destructive',
       });
       return;
     }
+    setIsActive(true);
+    setIsPaused(false);
+    setStartTime(new Date());
+    setTimeLeft(initialDuration);
+  };
 
-    if (!date) {
-      toast({
-        title: 'Invalid Date',
-        description: 'Please select a date for the session.',
-        variant: 'destructive',
-      });
-      return;
+  const handlePause = () => {
+    setIsPaused(true);
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+  };
+  
+  const handleReset = () => {
+      setIsActive(false);
+      setIsPaused(false);
+      setTimeLeft(initialDuration);
+      setStartTime(null);
+  }
+
+  const handleEndSession = () => {
+    const endTime = new Date();
+    if (startTime) {
+      const elapsedSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+      handleSessionEnd(elapsedSeconds, false);
     }
+  };
 
-    if (userId) {
+  const handleSessionEnd = (duration: number, completed: boolean) => {
+    if (userId && duration > 0) {
       const sessionsColRef = collection(firestore, 'users', userId, 'meditationSessions');
-      
-      const now = new Date();
-      // Set the date from the picker, but keep the current time
-      const endTime = new Date(date);
-      endTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
-
-      const startTime = new Date(endTime.getTime() - totalSeconds * 1000);
+      const endTime = new Date();
+      const sessionStartTime = new Date(endTime.getTime() - duration * 1000);
 
       const sessionData = {
         userId,
-        startTime: startTime.toISOString(),
+        startTime: sessionStartTime.toISOString(),
         endTime: endTime.toISOString(),
-        duration: totalSeconds,
+        duration: duration,
         createdAt: serverTimestamp(),
       };
       
       addDocumentNonBlocking(sessionsColRef, sessionData);
 
-      toast({
-        title: 'Session Saved!',
-        description: `You logged a session of ${formatDuration(totalSeconds)}. Keep it up!`,
-        className: 'bg-accent text-accent-foreground',
-      });
-      
-      // Reset fields
-      setHours('');
-      setMinutes('');
-      setSeconds('');
-      setDate(new Date());
+      if (completed) {
+        playAlarm();
+        toast({
+          title: 'Session Complete!',
+          description: `Great job! You completed a ${formatDuration(duration)} session.`,
+          className: 'bg-accent text-accent-foreground',
+        });
+      } else {
+         toast({
+            title: 'Session Saved!',
+            description: `You logged a session of ${formatDuration(duration)}.`,
+        });
+      }
     }
+    handleReset();
   };
 
+
+  const formatTime = (time: number) => {
+    const h = Math.floor(time / 3600).toString().padStart(2, '0');
+    const m = Math.floor((time % 3600) / 60).toString().padStart(2, '0');
+    const s = Math.floor(time % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+  
   const formatDuration = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -98,6 +151,7 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     return parts.join(' ');
   };
 
+
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string, max: number) => {
     const num = parseInt(value, 10);
     if (value === '' || (num >= 0 && num <= max)) {
@@ -105,80 +159,107 @@ export function MeditationTimer({ userId }: MeditationTimerProps) {
     }
   };
 
+  const progress = (timeLeft / initialDuration) * 100;
+
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>Log Meditation Session</CardTitle>
-        <CardDescription>Enter the duration and date of your completed meditation session.</CardDescription>
+        <CardTitle>Meditation Timer</CardTitle>
+        <CardDescription>Set your desired duration and start your session.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center gap-6">
-        <div className="flex w-full max-w-md flex-col items-center justify-center gap-4">
-            <div className="flex w-full items-center justify-center gap-2 sm:gap-4">
-                <div className="flex-1 text-center">
-                    <Input
-                    type="number"
-                    value={hours}
-                    onChange={(e) => handleInputChange(setHours, e.target.value, 99)}
-                    placeholder="0"
-                    className="text-center text-lg font-mono"
-                    aria-label="Hours"
-                    />
-                    <label className="text-xs text-muted-foreground">Hours</label>
-                </div>
-                <div className="flex-1 text-center">
-                    <Input
-                    type="number"
-                    value={minutes}
-                    onChange={(e) => handleInputChange(setMinutes, e.target.value, 59)}
-                    placeholder="00"
-                    className="text-center text-lg font-mono"
-                    aria-label="Minutes"
-                    />
-                    <label className="text-xs text-muted-foreground">Minutes</label>
-                </div>
-                <div className="flex-1 text-center">
-                    <Input
-                    type="number"
-                    value={seconds}
-                    onChange={(e) => handleInputChange(setSeconds, e.target.value, 59)}
-                    placeholder="00"
-                    className="text-center text-lg font-mono"
-                    aria-label="Seconds"
-                    />
-                    <label className="text-xs text-muted-foreground">Seconds</label>
-                </div>
+      <CardContent className="flex flex-1 flex-col items-center justify-center gap-6">
+        {isActive ? (
+          <div className="relative flex h-48 w-48 items-center justify-center rounded-full sm:h-56 sm:w-56">
+            <svg className="absolute h-full w-full -rotate-90" viewBox="0 0 120 120">
+              <circle
+                cx="60"
+                cy="60"
+                r="54"
+                stroke="hsl(var(--muted))"
+                strokeWidth="8"
+                fill="transparent"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r="54"
+                stroke="hsl(var(--primary))"
+                strokeWidth="8"
+                fill="transparent"
+                strokeDasharray="339.292"
+                strokeDashoffset={339.292 - (progress / 100) * 339.292}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <div className="relative text-center">
+              <span className="block text-4xl font-bold font-mono tracking-tighter sm:text-5xl">{formatTime(timeLeft)}</span>
+              <span className="text-sm text-muted-foreground">Time Remaining</span>
             </div>
-            <div className="w-full">
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-                 <label className="pl-1 text-xs text-muted-foreground">Session Date</label>
-            </div>
-        </div>
+          </div>
+        ) : (
+          <div className="flex w-full max-w-md flex-col items-center justify-center gap-4">
+              <div className="flex w-full items-center justify-center gap-2 sm:gap-4">
+                  <div className="flex-1 text-center">
+                      <Input
+                      type="number"
+                      value={hours}
+                      onChange={(e) => handleInputChange(setHours, e.target.value, 99)}
+                      placeholder="0"
+                      className="text-center text-lg font-mono"
+                      aria-label="Hours"
+                      />
+                      <label className="text-xs text-muted-foreground">Hours</label>
+                  </div>
+                  <div className="flex-1 text-center">
+                      <Input
+                      type="number"
+                      value={minutes}
+                      onChange={(e) => handleInputChange(setMinutes, e.target.value, 59)}
+                      placeholder="15"
+                      className="text-center text-lg font-mono"
+                      aria-label="Minutes"
+                      />
+                      <label className="text-xs text-muted-foreground">Minutes</label>
+                  </div>
+                  <div className="flex-1 text-center">
+                      <Input
+                      type="number"
+                      value={seconds}
+                      onChange={(e) => handleInputChange(setSeconds, e.target.value, 59)}
+                      placeholder="00"
+                      className="text-center text-lg font-mono"
+                      aria-label="Seconds"
+                      />
+                      <label className="text-xs text-muted-foreground">Seconds</label>
+                  </div>
+              </div>
+          </div>
+        )}
+
         <div className="flex w-full items-center justify-center gap-4">
-          <Button size="lg" onClick={handleLogSession} aria-label="Log meditation session">
-            <LogIn className="mr-2" /> Log Session
-          </Button>
+          {!isActive ? (
+            <Button size="lg" onClick={handleStart} aria-label="Start meditation session">
+              <Play className="mr-2" /> Start Session
+            </Button>
+          ) : (
+            <>
+              {isPaused ? (
+                <Button size="lg" onClick={handleResume} aria-label="Resume meditation session">
+                  <Play className="mr-2" /> Resume
+                </Button>
+              ) : (
+                <Button size="lg" onClick={handlePause} aria-label="Pause meditation session">
+                  <Pause className="mr-2" /> Pause
+                </Button>
+              )}
+              <Button size="lg" variant="destructive" onClick={handleEndSession} aria-label="End meditation session">
+                <Square className="mr-2" /> End Session
+              </Button>
+               <Button size="lg" variant="outline" onClick={handleReset} aria-label="Reset timer">
+                <RotateCcw />
+              </Button>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
