@@ -16,19 +16,26 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
-import { TimePicker } from '@/components/ui/time-picker';
+import { Input } from '@/components/ui/input';
 
 const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Use HH:MM format."),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Use HH:MM format."),
 }).refine(data => {
-    // Combine date and time to create full Date objects for comparison
-    const startDate = parse(data.startTime, 'HH:mm', data.date);
-    const endDate = parse(data.endTime, 'HH:mm', data.date);
-    return endDate > startDate;
+    const startDateTime = parse(data.startTime, 'HH:mm', data.date);
+    let endDateTime = parse(data.endTime, 'HH:mm', data.date);
+
+    if (endDateTime <= startDateTime) {
+      endDateTime = add(endDateTime, { days: 1 });
+    }
+
+    const durationInSeconds = (endDateTime.getTime() - startDateTime.getTime()) / 1000;
+    
+    // Session must have a positive duration and be less than 24 hours.
+    return durationInSeconds > 0 && durationInSeconds < 24 * 60 * 60;
 }, {
-    message: "End time must be after start time.",
+    message: "End time must be after start time. Session cannot exceed 24 hours.",
     path: ["endTime"],
 });
 
@@ -151,7 +158,7 @@ export function ManualSessionForm({ onSessionLogged }: ManualSessionFormProps) {
               <FormItem>
                 <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <TimePicker value={field.value} onChange={field.onChange} />
+                  <Input type="time" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -164,7 +171,7 @@ export function ManualSessionForm({ onSessionLogged }: ManualSessionFormProps) {
               <FormItem>
                 <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <TimePicker value={field.value} onChange={field.onChange} />
+                  <Input type="time" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
