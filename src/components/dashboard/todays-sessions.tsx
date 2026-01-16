@@ -60,7 +60,7 @@ export function TodaysSessions({ sessions, userId }: TodaysSessionsProps) {
                 <div className="font-medium">{formatDuration(session.duration)}</div>
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                        {new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <Button
                         variant="ghost"
