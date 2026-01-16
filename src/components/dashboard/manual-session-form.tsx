@@ -9,7 +9,6 @@ import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +16,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
+import { TimePicker } from '@/components/ui/time-picker';
 
 const formSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
@@ -151,7 +151,7 @@ export function ManualSessionForm({ onSessionLogged }: ManualSessionFormProps) {
               <FormItem>
                 <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <TimePicker value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -164,7 +164,7 @@ export function ManualSessionForm({ onSessionLogged }: ManualSessionFormProps) {
               <FormItem>
                 <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <TimePicker value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
