@@ -52,7 +52,7 @@ export function MeditationChart({
   });
 
   const chartData = useMemo(() => {
-    const dataByDay: { [key: string]: { total: number, sessions: { endTime: string, duration: number }[] } } = {};
+    const dataByDay: { [key: string]: { total: number, sessions: { startTime: string, endTime: string, duration: number }[] } } = {};
 
     sessions.forEach(session => {
       const day = format(parseISO(session.endTime), 'yyyy-MM-dd');
@@ -61,6 +61,7 @@ export function MeditationChart({
       }
       dataByDay[day].total += session.duration;
       dataByDay[day].sessions.push({
+        startTime: session.startTime,
         endTime: session.endTime,
         duration: session.duration,
       });
@@ -129,7 +130,7 @@ export function MeditationChart({
                     {data.sessions.map((s: any, i: number) => (
                          <div key={i} className="flex justify-between text-xs">
                            <span>{formatDuration(s.duration)}</span>
-                           <span className="text-muted-foreground">{format(parseISO(s.endTime), 'p')}</span>
+                           <span className="text-muted-foreground">{format(parseISO(s.startTime), 'p')}</span>
                          </div>
                     ))}
                 </div>
