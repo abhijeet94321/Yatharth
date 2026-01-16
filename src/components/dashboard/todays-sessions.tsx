@@ -1,14 +1,17 @@
 'use client';
 
 import type { MeditationSession } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { isToday } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ManualSessionForm } from './manual-session-form';
+import { useState } from 'react';
 
 interface TodaysSessionsProps {
   sessions: MeditationSession[];
@@ -28,6 +31,7 @@ const formatDuration = (seconds: number) => {
 export function TodaysSessions({ sessions, userId }: TodaysSessionsProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const todaySessions = sessions
     .filter(session => isToday(new Date(session.endTime)))
@@ -74,6 +78,25 @@ export function TodaysSessions({ sessions, userId }: TodaysSessionsProps) {
           <p className="text-center text-sm text-muted-foreground">No sessions logged today.</p>
         )}
       </CardContent>
+      <CardFooter>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Log a Past Session
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Log a Past Session</DialogTitle>
+                <DialogDescription>
+                  Manually add a meditation session you completed without the timer.
+                </DialogDescription>
+              </DialogHeader>
+              <ManualSessionForm onSessionLogged={() => setIsDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </CardFooter>
     </Card>
   );
 }
